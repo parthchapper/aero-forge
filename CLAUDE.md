@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Claude Code plugin + Python engine that turns a mission brief into one novel, physics-checked small fixed-wing UAV (CAD, report, 3D viewer). Principle (SPEC §1): size by physics, shape by search, geometry by code; Claude never writes geometry or genome values (plan v2 lets Claude only narrow search ranges from the mission text).
 
 ## Project location
-Work in **C:\devero-forge** (git repo, outside OneDrive; moved at U0). The old OneDrive copy is stale: do not edit it. The dev venv's editable install and the `aero-forge-market` marketplace both point at C:\devero-forge. Every upgrade step ends with a commit `upgrade Un: <summary>` (repo-local git identity; `archive_*/` and caches are git-ignored; `designs/` is tracked).
+Work in **C:/dev/aero-forge** (git repo, outside OneDrive; moved at U0). The old OneDrive copy is stale: do not edit it. The dev venv's editable install and the `aero-forge-market` marketplace both point at C:/dev/aero-forge. Every upgrade step ends with a commit `upgrade Un: <summary>` (repo-local git identity; `archive_*/` and caches are git-ignored; `designs/` is tracked).
 
 ## Workflow (read first)
 Before any work: read RULES.md, then CHANGELOG.md (Decisions, Known issues, last step entry).
