@@ -5,6 +5,7 @@ from dataclasses import dataclass, replace
 import numpy as np
 
 from aeroforge.constants import number
+from aeroforge.facet_query import axis_half_height_m
 from aeroforge.layout import place_pod
 from aeroforge.models import Body, Family, Requirements, Vec3
 from aeroforge.planform import (
@@ -140,7 +141,10 @@ def root_reach_m(body: Body, x_lo_m: float, x_hi_m: float) -> float:
     body axis: the usable share of the smallest section half-height there, less half the rise of
     a tail upsweep across the chord. Negative: the chord cannot stay inside the body."""
     t = (np.array([x_lo_m, x_hi_m]) - body.nose_m[0]) / body.length_m
-    half_h = body.half_height_m * float(body_radius_frac(body, t).min())
+    if body.facets is not None:
+        half_h = axis_half_height_m(body.facets, x_lo_m - body.nose_m[0], x_hi_m - body.nose_m[0])
+    else:
+        half_h = body.half_height_m * float(body_radius_frac(body, t).min())
     ends = body_axis_z(body, t)
     return number("root_z_usable_frac") * half_h - abs(float(ends[1] - ends[0])) / 2
 

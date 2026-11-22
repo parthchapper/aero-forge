@@ -14,6 +14,7 @@ from math import hypot
 import numpy as np
 
 from aeroforge.constants import number
+from aeroforge.facet_query import face_projection
 from aeroforge.models import Body, Design
 from aeroforge.shapes import body_axis_z, body_radius_frac, body_stations, section_normal
 from aeroforge.style import panels
@@ -105,9 +106,18 @@ def _body_centres(d: Design) -> list[tuple[Body, float]]:
     return out
 
 
+def _faceted_shadow(b: Body, y0: float, s: np.ndarray, columns: tuple[int, int]) -> Intervals:
+    """Intervals of a faceted body: its flat faces projected onto two body-frame coordinates (the
+    union of the face shadows is the solid's shadow), placed at the body's nose and y0."""
+    polys = face_projection(b.facets, columns) + np.array([y0, b.nose_m[columns[1]]])
+    return _polygon_intervals(polys, s)
+
+
 def _body_top(b: Body, y0: float, s: np.ndarray) -> Intervals:
     """x interval of the planform |y - y0| <= half_width x radius(t), by inverting the nose
     (elliptic) and tail (cosine boat-tail) laws of shapes.body_radius_frac."""
+    if b.facets is not None:
+        return _faceted_shadow(b, y0, s, (1, 0))
     i0, i1 = np.searchsorted(s, [y0 - b.half_width_m, y0 + b.half_width_m])
     q = np.abs(s[i0:i1] - y0) / b.half_width_m
     q = np.minimum(q, 1.0)
@@ -124,6 +134,8 @@ def _body_top(b: Body, y0: float, s: np.ndarray) -> Intervals:
 def _body_front(b: Body, y0: float, s: np.ndarray) -> Intervals:
     """z interval of the super-ellipse sections sampled along x, joined into one span per line
     (consecutive sections overlap, so their union is that span)."""
+    if b.facets is not None:
+        return _faceted_shadow(b, y0, s, (1, 2))
     i0, i1 = np.searchsorted(s, [y0 - b.half_width_m, y0 + b.half_width_m])
     r = body_radius_frac(b, body_stations(int(number("area_body_stations"))))
     a, h = b.half_width_m * r[:, None], b.half_height_m * r[:, None]

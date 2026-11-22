@@ -20,6 +20,9 @@ BoxLayout = Literal["inline", "side_by_side", "stacked", "wing_root"]
 LayoutName = Literal[
     "free", "conventional", "canard", "tandem", "three_surface", "flying_wing", "joined"
 ]
+BodyStyle = Literal["smooth", "faceted"]
+NoseStyle = Literal["point", "chisel", "blunt"]
+TailStyle = Literal["point", "knife", "flat"]
 UnitInterval = Annotated[float, Field(ge=0.0, le=1.0)]
 
 
@@ -102,6 +105,27 @@ class Adjust(Frozen):
     incidence_deg: float = 0.0
 
 
+class BodyShape(Frozen):
+    """Body style genes (SPEC §4, U1): a smooth super-ellipse or a body of flat panels.
+
+    Defaults are the reference values, at which a smooth body is exactly the 0.3 body.
+    """
+
+    style: BodyStyle = "smooth"
+    sides: int = 8
+    stations: int = 3
+    chine_z_frac: float = 0.0
+    belly_flat_frac: float = 0.0
+    roof_pitch_deg: float = 45.0
+    side_tumblehome_deg: float = 0.0
+    lower_flare_deg: float = 0.0
+    nose: NoseStyle = "point"
+    tail: TailStyle = "point"
+    tail_flatten: float = 0.0
+    tail_end_size_frac: float = 0.18
+    max_section_x_frac: float = 0.41
+
+
 class Family(Frozen):
     """Design-language values every surface and body inherits."""
 
@@ -120,6 +144,7 @@ class Family(Frozen):
     body_tail_upsweep_deg: float
     box_layout: BoxLayout
     layout: LayoutName
+    shape: BodyShape = BodyShape()
 
 
 class Section(Frozen):
@@ -173,8 +198,20 @@ class Surface(Frozen):
     incidence_deg: float = 0.0
 
 
+class Polyhedron(Frozen):
+    """Closed solid of flat faces in the body's own frame (origin at the nose point, metres).
+
+    faces are vertex-index loops, outward counter-clockwise; every face is planar.
+    """
+
+    vertices_m: tuple[Vec3, ...]
+    faces: tuple[tuple[int, ...], ...]
+
+
 class Body(Frozen):
-    """Super-ellipse body of revolution-like shape along +x from its nose point."""
+    """Super-ellipse body of revolution-like shape along +x from its nose point, or (facets set)
+    a body of flat panels whose other fields give its extent and the envelope law consumers
+    that are not yet facet-aware (CAD, mass, aero: U2) use."""
 
     name: str
     mirrored: bool
@@ -187,6 +224,7 @@ class Body(Frozen):
     tail_frac: float
     tail_radius_frac: float
     tail_upsweep_deg: float = 0.0
+    facets: Polyhedron | None = None
 
 
 class Propulsor(Frozen):

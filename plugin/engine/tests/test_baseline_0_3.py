@@ -2,8 +2,9 @@
 
 fixtures/baseline_0.3/ was written by the U0 code. Through U1-U9 every reference must decode to
 the same Design, and the frozen random genomes (one [0, 1] value per 0.3 gene name; genes added
-later take their ref_default) must too. A Design may gain fields: only the frozen keys are compared, floats
-with a tolerance. The yaml files are snapshots of the 0.3 tables, kept for reference only.
+later take their ref_default) must too. A Design may gain fields: only the frozen keys are
+compared, floats with a tolerance. The yaml files are snapshots of the 0.3 tables, kept for
+reference only.
 """
 
 import json

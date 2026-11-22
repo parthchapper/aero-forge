@@ -6,7 +6,7 @@ from functools import cache
 import numpy as np
 
 from aeroforge.constants import load_table, number
-from aeroforge.models import Family
+from aeroforge.models import BodyShape, Family
 
 
 class GenomeError(ValueError):
@@ -96,6 +96,30 @@ def unpack(genome: np.ndarray) -> Genes:
     return Genes(num, pick)
 
 
+def _count(value: float, lo: int, hi: int) -> int:
+    """Integer gene: floor of the value (a tiny lift absorbs round-off), clipped to lo..hi."""
+    return int(np.clip(np.floor(value + number("facet_geom_tol_m")), lo, hi))
+
+
+def shape_of(v: Genes) -> BodyShape:
+    """Body style genes (SPEC §4, U1)."""
+    return BodyShape(
+        style=v.pick["body_style"],  # type: ignore[arg-type]
+        sides=_count(v.num["body_section_sides"], 3, int(number("facet_max_sides"))),
+        stations=_count(v.num["body_stations"], 1, int(number("facet_max_stations"))),
+        chine_z_frac=v.num["chine_z_frac"],
+        belly_flat_frac=v.num["belly_flat_frac"],
+        roof_pitch_deg=v.num["roof_pitch_deg"],
+        side_tumblehome_deg=v.num["side_tumblehome_deg"],
+        lower_flare_deg=v.num["lower_flare_deg"],
+        nose=v.pick["nose_style"],  # type: ignore[arg-type]
+        tail=v.pick["tail_style"],  # type: ignore[arg-type]
+        tail_flatten=v.num["tail_flatten"],
+        tail_end_size_frac=v.num["tail_end_size_frac"],
+        max_section_x_frac=v.num["max_section_x_frac"],
+    )
+
+
 def family_of(v: Genes) -> Family:
     """Design-language values from the global genes."""
     airfoil = v.pick["fam_airfoil"]
@@ -115,4 +139,5 @@ def family_of(v: Genes) -> Family:
         body_tail_upsweep_deg=v.num["body_tail_upsweep_deg"],
         box_layout=v.pick["box_layout"],  # type: ignore[arg-type]
         layout=v.pick["layout"],  # type: ignore[arg-type]
+        shape=shape_of(v),
     )

@@ -56,8 +56,29 @@ def _surface_points(s: Surface, x_window_m: tuple[float, float]) -> np.ndarray:
     return np.vstack(blocks)
 
 
+def _facet_points(b: Body, x_window_m: tuple[float, float]) -> np.ndarray:
+    """Points on every flat face of a faceted body (fan triangles, barycentric grid of about
+    BODY_STEP_M) inside the x window."""
+    assert b.facets is not None
+    v = np.asarray(b.facets.vertices_m) + np.asarray(b.nose_m)
+    blocks = []
+    for face in b.facets.faces:
+        for i in range(1, len(face) - 1):
+            a, p, q = v[face[0]], v[face[i]], v[face[i + 1]]
+            n = max(
+                int(np.ceil(max(np.linalg.norm(p - a), np.linalg.norm(q - a)) / BODY_STEP_M)), 1
+            )
+            u, w = np.meshgrid(np.linspace(0, 1, n + 1), np.linspace(0, 1, n + 1))
+            keep = (u + w <= 1.0).ravel()
+            blocks.append(a + u.ravel()[keep, None] * (p - a) + w.ravel()[keep, None] * (q - a))
+    pts = np.vstack(blocks)
+    return pts[(pts[:, 0] >= x_window_m[0]) & (pts[:, 0] <= x_window_m[1])]
+
+
 def _body_points(b: Body, x_window_m: tuple[float, float]) -> np.ndarray:
     """Body points at stations inside the x window."""
+    if b.facets is not None:
+        return _facet_points(b, x_window_m)
     t_lo, t_hi = np.clip((np.asarray(x_window_m) - b.nose_m[0]) / b.length_m, 0.0, 1.0)
     n = int(np.ceil((t_hi - t_lo) * b.length_m / BODY_STEP_M)) + 1
     t = t_lo + (t_hi - t_lo) * np.concatenate([[0.0], (np.arange(n) + 0.5) / n, [1.0]])

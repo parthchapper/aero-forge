@@ -38,14 +38,15 @@ def genomes() -> np.ndarray:
 
 
 LEGACY_GENES = Path(__file__).parent / "fixtures" / "baseline_pre_step10" / "genes_pre_step10.yaml"
+GENES_0_3 = Path(__file__).parent / "fixtures" / "baseline_0.3" / "genes_0.3.yaml"
 LEGACY_GENOMES = 200
 
 
-def legacy_random_genomes(seed: int, n: int) -> np.ndarray:
+def legacy_random_genomes(seed: int, n: int, table_path: Path = LEGACY_GENES) -> np.ndarray:
     """The first n random genomes the pre-step-10 table (71 genes) drew for seed, re-encoded into
     today's table (new genes at their defaults): the very designs the calibrated tests were tuned
     on, which the 86-gene table would otherwise silently replace with different ones."""
-    table = yaml.safe_load(LEGACY_GENES.read_text(encoding="utf-8"))["genes"]
+    table = yaml.safe_load(table_path.read_text(encoding="utf-8"))["genes"]
     u = np.random.default_rng(seed).random((n, len(table)))
     rows = []
     for row in u:
@@ -66,6 +67,14 @@ def legacy_genomes() -> np.ndarray:
 
 
 @pytest.fixture(scope="session")
+def genomes_0_3() -> np.ndarray:
+    """The 1,000 random genomes the 0.3 table (86 genes) drew for the property seed, re-encoded
+    into today's table (the U1 genes at their defaults): the population calibrated 0.3 tests
+    were tuned on, which the wider table would otherwise replace."""
+    return legacy_random_genomes(PROPERTY_SEED, N_PROPERTY_GENOMES, GENES_0_3)
+
+
+@pytest.fixture(scope="session")
 def designs(genomes: np.ndarray, req: Requirements) -> list[Design]:
     return [decode(g, req) for g in genomes]
 
@@ -82,6 +91,13 @@ def decoded(
     if brief == req:
         return designs
     return [decode(g, brief) for g in genomes[:SMALL_BOXES_GENOMES]]
+
+
+@pytest.fixture(scope="session")
+def decoded_0_3(brief: Requirements, genomes_0_3: np.ndarray) -> list[Design]:
+    """genomes_0_3 decoded for the parametrised brief (the small-boxes brief: first rows only)."""
+    rows = genomes_0_3 if brief == brief_requirements("stub") else genomes_0_3[:SMALL_BOXES_GENOMES]
+    return [decode(g, brief) for g in rows]
 
 
 SAMPLE_BRIEF = Path(__file__).parent / "fixtures" / "brief_sample.yaml"

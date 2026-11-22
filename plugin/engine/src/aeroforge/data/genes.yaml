@@ -89,3 +89,16 @@ genes:
   - {name: s2_twist_deg, kind: float, lo: -6, hi: 2, ref_default: 0.0, meaning: "linear washout from root to tip, added to the incidence per section"}
   - {name: s3_root_chord_scale, kind: float, lo: 1.0, hi: 2.0, ref_default: 1.0, meaning: "strake / glove: inner-panel root chord stretched by this factor, all chords then rescaled to keep the area (unjoined surfaces)"}
   - {name: s3_twist_deg, kind: float, lo: -6, hi: 2, ref_default: 0.0, meaning: "linear washout from root to tip, added to the incidence per section"}
+  - {name: body_style, kind: choice, choices: ["smooth", "faceted"], meaning: "body of super-ellipse sections or of flat panels; pods follow"}
+  - {name: body_section_sides, kind: float, lo: 3, hi: 13, ref_default: 8, meaning: "corners of the faceted cross-section: floor(value), 13 reads 12 (3 triangle, 4 diamond or box, 6-8 chined hexagon or octagon)"}
+  - {name: body_stations, kind: float, lo: 1, hi: 9, ref_default: 3, meaning: "polygon stations along a faceted body: floor(value), 9 reads 8"}
+  - {name: chine_z_frac, kind: float, lo: -1, hi: 1, ref_default: 0.0, meaning: "chine (widest corner) height / half-height; limited to +-facet_chine_limit"}
+  - {name: belly_flat_frac, kind: float, lo: 0, hi: 1, ref_default: 0.0, meaning: "flat belly half-width as a share of the widest the lower side allows (0 = keel point)"}
+  - {name: roof_pitch_deg, kind: float, lo: 10, hi: 60, ref_default: 45, meaning: "slope of the two roof panels below horizontal"}
+  - {name: side_tumblehome_deg, kind: float, lo: 0, hi: 45, ref_default: 0.0, meaning: "upper sides lean inward by this angle from vertical"}
+  - {name: lower_flare_deg, kind: float, lo: 0, hi: 45, ref_default: 0.0, meaning: "lower sides run inward and down at this angle from vertical"}
+  - {name: nose_style, kind: choice, choices: ["point", "chisel", "blunt"], meaning: "faceted nose closes to a point, a horizontal edge or a flat cap"}
+  - {name: tail_style, kind: choice, choices: ["point", "knife", "flat"], meaning: "faceted tail closes to a point, a vertical edge or a flat cap"}
+  - {name: tail_flatten, kind: float, lo: 0, hi: 1, ref_default: 0.0, meaning: "last faceted station squashed in height by this share: a shape break (below facet_break_flatten_min none)"}
+  - {name: tail_end_size_frac, kind: float, lo: 0, hi: 0.5, ref_default: 0.18, meaning: "tail-end size / max section (was the constant body_tail_radius_frac); floored at facet_smooth_tail_min_frac"}
+  - {name: max_section_x_frac, kind: float, lo: 0.2, hi: 0.7, ref_default: 0.41, meaning: "faceted body: length fraction of the widest station (smooth bodies: unused)"}

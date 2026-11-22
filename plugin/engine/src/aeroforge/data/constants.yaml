@@ -31,7 +31,25 @@ area_check_rel_tol: {value: 1.0e-7, unit: "-", source: "accepted projected-area 
 # --- bodies and boxes ---
 body_nose_frac: {value: 0.22, unit: "-", source: "assumed elliptic nose length / body length"}
 body_tail_frac: {value: 0.4, unit: "-", source: "assumed boat-tail length / body length"}
-body_tail_radius_frac: {value: 0.18, unit: "-", source: "assumed tail-end radius / max radius"}
+# --- faceted bodies (U1) ---
+facet_blunt_nose_size_frac: {value: 0.35, unit: "-", source: "assumed blunt-nose cap size / max section"}
+facet_chisel_width_frac: {value: 0.3, unit: "-", source: "assumed chisel edge half-length / first-station half-width"}
+facet_knife_height_frac: {value: 0.5, unit: "-", source: "assumed knife edge half-height / last-station half-height"}
+facet_break_flatten_default: {value: 0.3, unit: "-", source: "assumed squash of a shape break that a requested panel count asks for while tail_flatten is below the minimum"}
+facet_break_flatten_min: {value: 0.05, unit: "-", source: "assumed: tail_flatten below this is no shape break"}
+facet_tail_end_min_frac: {value: 0.05, unit: "-", source: "assumed floor of tail_end_size_frac: keeps the last smooth ring and a flat cap off zero size"}
+facet_chine_limit: {value: 0.8, unit: "-", source: "assumed limit of |chine_z_frac|: keeps roof and belly above and below the chine"}
+facet_roof_margin_deg: {value: 5.0, unit: deg, source: "assumed: roof pitch stays this far under (90 - tumblehome) so the shoulder stays convex"}
+facet_flare_margin: {value: 0.98, unit: "-", source: "assumed: tan(lower flare) stays under this / (1 + chine height) so the lower side stays convex"}
+facet_corner_min_frac: {value: 0.02, unit: "-", source: "assumed: an outline corner closer than this to another point or axis is not a corner"}
+facet_bulge_frac: {value: 0.1, unit: "-", source: "assumed sagitta / run length per radian of the smaller end turn: spread corners bulge so the polygon stays strictly convex (end tangent turns 0.4x the corner)"}
+facet_geom_tol_m: {value: 1.0e-9, unit: m, source: "SPEC §5 invariant 11 planarity and support-plane tolerance"}
+facet_box_length_frac: {value: 0.5, unit: "-", source: "assumed: half the box stack length / the shorter side of the widest station, at the first size trial"}
+facet_length_growth: {value: 1.2, unit: "-", source: "assumed factor lengthening a body whose box stack leaves the faceted body"}
+facet_length_growth_max: {value: 30, unit: count, source: "cap on box-fit lengthening steps"}
+facet_max_sides: {value: 12, unit: count, source: "SPEC §4 body_section_sides range"}
+facet_max_stations: {value: 8, unit: count, source: "SPEC §4 body_stations range"}
+facet_smooth_tail_min_frac: {value: 0.05, unit: "-", source: "assumed floor of a smooth body's tail-end radius / max radius (0.3 constant was 0.18)"}
 body_wall_margin_frac: {value: 0.06, unit: "-", source: "assumed wall + clearance around boxes / half-dimension"}
 box_gap_m: {value: 0.01, unit: m, source: "assumed gap between internal boxes"}
 battery_energy_density_wh_per_m3: {value: 300000, unit: Wh/m3, source: "Li-ion pack ~300 Wh/L"}

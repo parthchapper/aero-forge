@@ -6,6 +6,7 @@ import numpy as np
 
 from aeroforge.airfoil import naca_outline
 from aeroforge.constants import number, numbers
+from aeroforge.facet_query import inside_faceted, sample_points
 from aeroforge.models import Body, Design, Propulsor, Section, Surface, instance_names
 
 X_HAT = np.array([1.0, 0.0, 0.0])
@@ -164,6 +165,8 @@ def body_points(body: Body, n_stations: int, n_ring: int) -> np.ndarray:
 def inside_body(body: Body, points: np.ndarray, tol_m: float = 1e-9) -> np.ndarray:
     """Mask of points inside the right/centre instance of body."""
     rel = points - np.asarray(body.nose_m)
+    if body.facets is not None:
+        return inside_faceted(body.facets, rel, tol_m)
     t = rel[:, 0] / body.length_m
     rel[:, 2] -= body_axis_z(body, t) - body.nose_m[2]
     r = body_radius_frac(body, t)
@@ -211,6 +214,13 @@ def prop_points(prop: Propulsor, n_points: int) -> np.ndarray:
     return np.vstack([blade, other, tip, hub, np.asarray(prop.attach_m)])
 
 
+def _body_samples(body: Body, spacing_m: float, n_ring: int) -> np.ndarray:
+    """Surface samples of a body: rings of the smooth law, or vertices and face-edge points."""
+    if body.facets is not None:
+        return np.asarray(body.nose_m) + sample_points(body.facets, spacing_m)
+    return body_points(body, _cosine_stations(body.length_m, spacing_m), n_ring)
+
+
 def _cosine_stations(length_m: float, spacing_m: float) -> int:
     """Cosine-clustered station count whose widest gap (mid-body) is at most spacing_m."""
     return int(np.ceil(np.pi * length_m / (2.0 * spacing_m))) + 1
@@ -223,10 +233,7 @@ def component_points(design: Design, include_props: bool) -> dict[str, np.ndarra
     ring = int(number("sample_body_ring_points"))
     raw: list[tuple[str, bool, np.ndarray]] = []
     raw += [(s.name, s.mirrored, surface_points(s, n_af, spacing)) for s in design.surfaces]
-    raw += [
-        (b.name, b.mirrored, body_points(b, _cosine_stations(b.length_m, spacing), ring))
-        for b in design.bodies
-    ]
+    raw += [(b.name, b.mirrored, _body_samples(b, spacing, ring)) for b in design.bodies]
     ring = int(number("body_ring_points"))
     if include_props:
         raw += [(p.name, p.mirrored, prop_points(p, ring)) for p in design.propulsors]

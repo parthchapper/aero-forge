@@ -1,9 +1,13 @@
 """Bodies, internal boxes, pods and propellers placed around the surfaces."""
 
+from itertools import product
+
 import numpy as np
 
 from aeroforge.airfoil import naca_outline
 from aeroforge.constants import constant, number, numbers
+from aeroforge.facet_query import fit_scale
+from aeroforge.facets import FacetError, axis_rise_m, facet_body
 from aeroforge.models import Body, Box, Family, Propulsor, Requirements, Section, Vec3
 from aeroforge.shapes import body_axis_z, body_radius_frac, inside_loft
 
@@ -70,6 +74,93 @@ def _section_axes(half_w: float, half_h: float, ratio: float) -> tuple[float, fl
     return (aspect * half_h, half_h) if ratio > 1.0 else (half_w, half_w / aspect)
 
 
+def _tail_radius_frac(fam: Family) -> float:
+    """Tail-end radius / max radius of a smooth body: the gene, floored off a degenerate ring."""
+    return max(fam.shape.tail_end_size_frac, number("facet_smooth_tail_min_frac"))
+
+
+def _box_corners(req: Requirements, layout: str, x_centre_m: float) -> np.ndarray:
+    """All corners of the packed boxes with the packing centred at x_centre_m on the axis [m]."""
+    sizes = box_sizes(req)
+    _, offsets = arrange_boxes(sizes, layout)
+    corners = []
+    for name, off in offsets.items():
+        half = np.array(sizes[name]) / 2
+        centre = np.array([x_centre_m, 0.0, 0.0]) + np.array(off)
+        corners += [centre + half * np.array(sign) for sign in product((-1.0, 1.0), repeat=3)]
+    return np.array(corners)
+
+
+def _faceted_fit(
+    fam: Family, req: Requirements, layout: str, length_m: float, axes_m: tuple[float, float]
+) -> float:
+    """Even cross-section scale at which the packed boxes fit a faceted body of this length and
+    base axes (closed form, facets.fit_scale)."""
+    poly = facet_body(fam.shape, length_m, axes_m)
+    corners = _box_corners(req, layout, fam.shape.max_section_x_frac * length_m)
+    # an upswept body is the level one sheared in z: fit the boxes relative to the axis, with the
+    # wall margin a smooth body keeps (it also leaves room for the hatch above the boxes)
+    t = corners[:, 0] / length_m
+    corners[:, 2] -= axis_rise_m(t, fam.shape, length_m, fam.body_tail_upsweep_deg)
+    return fit_scale(poly, corners) * (1.0 + number("body_wall_margin_frac"))
+
+
+def size_faceted_body(
+    req: Requirements, fam: Family, floor_m: float, holds_boxes: bool
+) -> tuple[float, tuple[float, float]]:
+    """(length, half-width and half-height) [m] of a faceted body at least floor_m long, at the
+    fineness (length / max diameter, measured on the inline packing's fit: decision B1). It holds
+    the boxes' packing when holds_boxes: the cross-section never drops below the closed-form fit."""
+    ratio, fineness = fam.body_width_ratio, fam.body_fineness
+    if not holds_boxes:
+        axes = _section_axes(1.0, 1.0, ratio)
+        k = floor_m / (fineness * 2 * max(axes))
+        return floor_m, (axes[0] * k, axes[1] * k)
+    env, _ = arrange_boxes(box_sizes(req), fam.box_layout)
+    axes = _section_axes(env[1] / 2, env[2] / 2, ratio)
+    inline, _ = arrange_boxes(box_sizes(req), "inline")
+    # a stack centred on the widest station must lie within the inner part of the shorter side
+    shorter = min(fam.shape.max_section_x_frac, 1.0 - fam.shape.max_section_x_frac)
+    length = max(
+        floor_m, max(env[0], inline[0]) / (2.0 * number("facet_box_length_frac") * shorter)
+    )
+    in_axes = _section_axes(inline[1] / 2, inline[2] / 2, ratio)
+    # lengthen until the boxes fit at all and the inline packing's fit reads at most the fineness
+    # (B1); then the packing in use fits too, and the section widens to the fineness exactly
+    for _ in range(int(number("facet_length_growth_max"))):
+        k_in = _faceted_fit(fam, req, "inline", length, in_axes)
+        k_fit = _faceted_fit(fam, req, fam.box_layout, length, axes)
+        if np.isfinite(k_fit) and fineness * 2 * max(in_axes) * k_in <= length:
+            break
+        length *= number("facet_length_growth")
+    else:
+        raise FacetError("the boxes do not fit a faceted body of any tried length")
+    k = max(k_fit, length / (fineness * 2 * max(axes)))
+    return length, (axes[0] * k, axes[1] * k)
+
+
+def _faceted_body(
+    fam: Family, length_m: float, axes_m: tuple[float, float], name: str, upsweep_deg: float = 0.0
+) -> Body:
+    """Body of flat panels; its smooth-law fields give the same extent and envelope (widest
+    station at nose_frac, boat-tail after it) to consumers that are not facet-aware yet."""
+    m = fam.shape.max_section_x_frac
+    return Body(
+        name=name,
+        mirrored=False,
+        nose_m=(0.0, 0.0, 0.0),
+        length_m=length_m,
+        half_width_m=axes_m[0],
+        half_height_m=axes_m[1],
+        section_exp=fam.body_section_exp,
+        nose_frac=m,
+        tail_frac=1.0 - m,
+        tail_radius_frac=_tail_radius_frac(fam),
+        tail_upsweep_deg=upsweep_deg,
+        facets=facet_body(fam.shape, length_m, axes_m, upsweep_deg),
+    )
+
+
 def size_centre_body(
     req: Requirements,
     fam: Family,
@@ -87,6 +178,9 @@ def size_centre_body(
     """
     nose_frac, tail_frac = fam.body_nose_frac, fam.body_tail_frac
     floor_m = max(length_frac * req.ref_length_m, min_length_m)
+    if fam.shape.style == "faceted":
+        length, axes = size_faceted_body(req, fam, floor_m, holds_boxes)
+        return _faceted_body(fam, length, axes, "body0", fam.body_tail_upsweep_deg)
     if holds_boxes:
         env, _ = arrange_boxes(box_sizes(req), fam.box_layout)
         fit = 2 ** (1 / fam.body_section_exp) * (1 + number("body_wall_margin_frac"))
@@ -112,7 +206,7 @@ def size_centre_body(
         section_exp=fam.body_section_exp,
         nose_frac=nose_frac,
         tail_frac=tail_frac,
-        tail_radius_frac=number("body_tail_radius_frac"),
+        tail_radius_frac=_tail_radius_frac(fam),
         tail_upsweep_deg=fam.body_tail_upsweep_deg,
     )
 
@@ -223,17 +317,21 @@ def place_pod(
     le = root + s * (outer - root)
     length = genes["pod_length_frac"] * req.ref_length_m
     radius = length / (2 * fam.body_fineness)
+    nose = (float(le[0] - genes["pod_x_frac"] * length), float(le[1]), float(le[2]))
+    if fam.shape.style == "faceted":
+        body = _faceted_body(fam, length, (radius, radius), "pod")
+        return body.model_copy(update={"mirrored": True, "nose_m": nose}), s
     pod = Body(
         name="pod",
         mirrored=True,
-        nose_m=(float(le[0] - genes["pod_x_frac"] * length), float(le[1]), float(le[2])),
+        nose_m=nose,
         length_m=length,
         half_width_m=radius,
         half_height_m=radius,
         section_exp=fam.body_section_exp,
         nose_frac=number("body_nose_frac"),
         tail_frac=number("body_tail_frac"),
-        tail_radius_frac=number("body_tail_radius_frac"),
+        tail_radius_frac=_tail_radius_frac(fam),
     )
     return pod, s
 

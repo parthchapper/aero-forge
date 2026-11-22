@@ -336,11 +336,11 @@ def test_a_packed_body_holds_every_box_inside_its_skin(layout: str, req: Require
 
 
 def test_the_wing_root_layout_holds_the_boxes_in_the_wing_when_they_fit_and_in_the_body_else(
-    genomes: np.ndarray, decoded: list[Design], brief: Requirements, req: Requirements
+    genomes_0_3: np.ndarray, decoded_0_3: list[Design], brief: Requirements, req: Requirements
 ) -> None:
     rows = [
         d
-        for g, d in zip(genomes, decoded, strict=False)
+        for g, d in zip(genomes_0_3, decoded_0_3, strict=False)
         if unpack(g).pick["box_layout"] == "wing_root"
     ]
     in_wing = [d for d in rows if d.boxes[0].host == "surface0"]
