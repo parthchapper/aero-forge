@@ -1,0 +1,58 @@
+# Style model: score = sigmoid(sum(weight * (f - mean) / std) + bias). Written by `aeroforge tune-style`.
+source: tune-style on marks_stub.json, marks_small_boxes.json, marks_stub_seed2.json,
+  marks_small_boxes_seed2.json, marks_stub_seed3.json, marks_small_boxes_seed3.json;
+  briefs from files
+bias: 2.383168269477045
+features:
+- name: body_fineness
+  mean: 9.000655097840694
+  std: 2.3766600300746026
+  weight: 0.12634239619215273
+- name: bodyless
+  mean: 0.011538461538461539
+  std: 0.10679571828396026
+  weight: 0.05712821610079193
+- name: log_ar_main
+  mean: 1.9843015863657054
+  std: 0.30297807330487825
+  weight: -0.19384322560558434
+- name: log_ar_rest
+  mean: 1.8901052020470104
+  std: 0.9328078758863733
+  weight: -0.3142445667908735
+- name: area_balance
+  mean: -0.2990048042190687
+  std: 0.7244234896229752
+  weight: 0.08038916139375718
+- name: sweep_spread_deg
+  mean: 12.6287662420166
+  std: 10.011005930040717
+  weight: 0.22441153281632084
+- name: taper_spread
+  mean: 0.09883016397605672
+  std: 0.14029664220497534
+  weight: -0.3154447188249426
+- name: root_cant_mean_deg
+  mean: 11.8620309442145
+  std: 8.944054433536033
+  weight: -0.18915274306789365
+- name: crease_max_deg
+  mean: 27.539780555231182
+  std: 18.802327796679354
+  weight: -0.43118186734428243
+- name: part_count
+  mean: 8.446153846153846
+  std: 2.598998441594046
+  weight: 0.06781514142852851
+- name: tip_join_share
+  mean: 0.3342948717948719
+  std: 0.2844325108379223
+  weight: 1.1532948763353552
+- name: planform_compactness
+  mean: 0.39268777396719895
+  std: 0.12687569203951785
+  weight: -0.18489923497192437
+- name: side_height_ratio
+  mean: 0.25347336583457913
+  std: 0.18899621529178648
+  weight: -0.05638970411553565

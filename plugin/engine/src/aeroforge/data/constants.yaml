@@ -1,0 +1,230 @@
+# Assumed constants: each entry {value, unit, source}.
+# --- airfoils and surfaces ---
+airfoil_points_per_side: {value: 40, unit: count, source: "cosine-spaced NACA sampling; smooth spline at loft scale"}
+break_none_frac: {value: 0.95, unit: "-", source: "break this close to the tip reads as no break"}
+fin_snap_cant_deg: {value: 70, unit: deg, source: "centre-hosted surface steeper than this becomes one centreline fin"}
+min_area_share: {value: 0.04, unit: "-", source: "SPEC §5 invariant 4"}
+tip_rounded: {value: {span_frac: 0.06, stations: [[0.30, 0.95], [0.55, 0.84], [0.75, 0.66], [0.90, 0.44], [1.00, 0.20]], align_chord_frac: 0.5}, unit: "-", source: "assumed: extension / semi-span; stations [ext frac, chord / tip chord] on an ellipse (min 0.2); mid-chord held"}
+tip_raked: {value: {span_frac: 0.08, stations: [[1.0, 0.35]], align_chord_frac: 1.0}, unit: "-", source: "assumed: raked tip holds the trailing edge"}
+join_max_sweep_deg: {value: 60, unit: deg, source: "assumed: steeper joined panels read as tangled"}
+join_min_length_m: {value: 1.0e-6, unit: m, source: "joined root and target tip closer than this coincide (no panel)"}
+control_min_chord_frac: {value: 0.12, unit: "-", source: "assumed: smaller controls are not worth a hinge"}
+control_span_frac: {value: [0.3, 0.95], unit: "-", source: "assumed outboard aileron/elevator span over structural semi-span"}
+surface_separation_cant_deg: {value: 30, unit: deg, source: "assumed: surfaces closer in cant than this must not share root chord"}
+surface_gap_chord_frac: {value: 0.1, unit: "-", source: "assumed gap between separated roots / larger root chord"}
+surface_gap_tol_m: {value: 1.0e-9, unit: m, source: "round-off allowed when judging a separated root gap"}
+body_grow_max_ref_frac: {value: 2.0, unit: "-", source: "assumed cap on body0 growth for crowded roots / reference length"}
+root_z_usable_frac: {value: 0.9, unit: "-", source: "assumed share of host half-height a root may use"}
+# --- spars ---
+spar_chord_frac: {value: 0.30, unit: "-", source: "NACA 4-digit maximum thickness station (x/c = 0.3)"}
+spar_skin_thickness_m: {value: 0.0005, unit: m, source: "assumed 0.5 mm composite/foam skin"}
+spar_tubes_m: {value: [[0.003, 0.002], [0.004, 0.003], [0.005, 0.004], [0.006, 0.004], [0.008, 0.006], [0.010, 0.008], [0.012, 0.010], [0.014, 0.012], [0.016, 0.014], [0.020, 0.018], [0.025, 0.022]], unit: m, source: "common stock carbon tube [OD, ID]"}
+tc_max: {value: 0.20, unit: "-", source: "assumed upper bound when thickening for a spar"}
+tc_step: {value: 0.01, unit: "-", source: "thickening increment"}
+taper_step: {value: 0.05, unit: "-", source: "surface0 tip-chord increase when no tube fits at tc_max"}
+area_solve_rel_tol: {value: 1.0e-10, unit: "-", source: "projected-area residual / S for the join solve"}
+area_solve_bracket_frac: {value: 1.0e-6, unit: "-", source: "lower bracket of the join area solve / unjoined scale"}
+area_solve_bracket_growth: {value: 2.0, unit: "-", source: "assumed factor widening the upper bracket of the area solve: the outer-panel height cap flattens the 1 m^2 unit-scale planform, so unit-scale projection overstates the projected share at the solved scale"}
+area_solve_max_iter: {value: 100, unit: count, source: "Illinois iterations cap"}
+decode_max_passes: {value: 40, unit: count, source: "cap on monotone decode repair passes"}
+area_check_rel_tol: {value: 1.0e-7, unit: "-", source: "accepted projected-area error / S after the solve"}
+# --- bodies and boxes ---
+body_nose_frac: {value: 0.22, unit: "-", source: "assumed elliptic nose length / body length"}
+body_tail_frac: {value: 0.4, unit: "-", source: "assumed boat-tail length / body length"}
+body_tail_radius_frac: {value: 0.18, unit: "-", source: "assumed tail-end radius / max radius"}
+body_wall_margin_frac: {value: 0.06, unit: "-", source: "assumed wall + clearance around boxes / half-dimension"}
+box_gap_m: {value: 0.01, unit: m, source: "assumed gap between internal boxes"}
+battery_energy_density_wh_per_m3: {value: 300000, unit: Wh/m3, source: "Li-ion pack ~300 Wh/L"}
+battery_box_proportions: {value: [3.0, 1.5, 1.0], unit: "-", source: "typical pack l:w:h"}
+avionics_box_m: {value: [0.10, 0.06, 0.035], unit: m, source: "assumed FC + GPS + radio stack"}
+box_order: {value: ["battery", "payload", "avionics"], unit: "-", source: "front-to-back stacking order"}
+wing_box_chord_frac: {value: 0.6, unit: "-", source: "assumed usable chord share of a thick centre section"}
+wing_box_thickness_frac: {value: 0.8, unit: "-", source: "assumed usable thickness share of a thick centre section"}
+box_contour_samples: {value: 9, unit: count, source: "chord stations checked per box against the section contour"}
+box_lattice_points: {value: 5, unit: count, source: "points per box axis checked against the real wing loft"}
+wing_box_span_frac: {value: 0.3, unit: "-", source: "assumed usable width / surface0 span"}
+pod_body_clearance_m: {value: 0.02, unit: m, source: "assumed gap between pod and centre body"}
+pod_panel_min_y_m: {value: 1.0e-9, unit: m, source: "inner panel with less y extent has no room for a pod at any scale"}
+# --- propulsion ---
+gravity_m_s2: {value: 9.80665, unit: m/s2, source: "standard gravity"}
+static_thrust_to_weight: {value: 0.6, unit: "-", source: "typical small electric fixed wing 0.5-0.8"}
+prop_disc_loading_n_m2: {value: 200, unit: N/m2, source: "assumed static disc loading for prop sizing"}
+prop_clearance_m: {value: 0.025, unit: m, source: "assumed disc clearance to structure and ground line"}
+ground_line_recoveries: {value: ["wheels", "skid"], unit: "-", source: "SPEC §5 inv 7 deviation: belly landers fold the prop, net recovery never touches the ground"}
+prop_gap_frac: {value: [0.04, 0.2], unit: "-", source: "assumed hub gap range / diameter"}
+prop_sample_pad_m: {value: 0.004, unit: m, source: "covers gaps between obstacle samples (unpadded rule at this sampling: dense-sampler penetration <= 2.2 mm on 600 designs)"}
+spinner_radius_frac: {value: 0.09, unit: "-", source: "assumed spinner radius / diameter"}
+spinner_length_frac: {value: 0.14, unit: "-", source: "assumed spinner length / diameter"}
+shaft_radius_frac: {value: 0.025, unit: "-", source: "assumed shaft radius / diameter"}
+shaft_embed_frac: {value: 0.1, unit: "-", source: "assumed shaft length buried in the host / diameter"}
+blade_chord_frac: {value: 0.09, unit: "-", source: "assumed blade root chord / diameter"}
+blade_tip_chord_frac: {value: 0.5, unit: "-", source: "assumed blade tip / root chord"}
+blade_thickness_frac: {value: 0.15, unit: "-", source: "assumed blade thickness / blade chord"}
+blade_root_spinner_frac: {value: 0.7, unit: "-", source: "blade root radius / spinner radius (root buried in the spinner)"}
+blade_stations_frac: {value: [0.0, 0.45, 0.8, 1.0], unit: "-", source: "blade loft stations from root to tip radius"}
+blade_pitch_deg: {value: 20, unit: deg, source: "assumed blade pitch to the rotation plane (looks only)"}
+# --- CAD, sampling, mesh ---
+body_loft_stations: {value: 17, unit: count, source: "stations per body for the mass model's wetted-area integral, cosine-clustered at the ends"}
+body_loft_cad_stations: {value: 33, unit: count, source: "loft stations per body in the CAD loft only (the mass model keeps body_loft_stations); 17 left 2.7 % volume error and failed tessellations on 3 of 8 stub designs with the step-10 body genes (nose 0.10-0.35, tail 0.15-0.45, width ratio 0.6-2), 33 gives <= 1.5 %"}
+body_loft_ring_points: {value: 48, unit: count, source: "spline points per body section in the CAD loft only (props keep body_ring_points); 36 left 2.1 % volume error on a stub design with the step-10 body genes, 48 with 33 stations stays <= 1.4 % on 8 designs"}
+body_ring_points: {value: 36, unit: count, source: "spline points per body section"}
+sample_spacing_m: {value: 0.008, unit: m, source: "max spanwise gap between sampled outlines (clearance checks)"}
+sample_airfoil_points_per_side: {value: 16, unit: count, source: "airfoil points per side for point sampling"}
+sample_body_ring_points: {value: 48, unit: count, source: "ring points per body station for point sampling (multiple of 4)"}
+tess_tolerance_frac: {value: 0.015, unit: "-", source: "linear tessellation tolerance / part cross-section size sqrt(volume / bbox diagonal); mesh volume within ~1.6 % (0.02 gave 2.0 %, 0.01 1.1 %)"}
+tess_prop_tolerance_frac: {value: 0.004, unit: "-", source: "prop tessellation tolerance / prop bbox diagonal (volume within 0.75 %, 0.5 s per prop vs 2 s at the section rule)"}
+tess_attempts: {value: 4, unit: count, source: "meshing tries per part before MeshError"}
+tess_retry_factor: {value: 0.7, unit: "-", source: "tolerance factor (linear and angular) for the next try after a mesh that misses the volume check"}
+tess_volume_rel_tol: {value: 0.018, unit: "-", source: "mesh volume check |mesh - solid| / solid before a finer retry (was 0.03, a fold detector; folded apex meshes lose >= 8 %). Step 10: flat boxy bodies (width ratio up to 2, section exponent up to 5) lost 2.9 % at the first mesh, so a miss now refines the linear and the angular tolerance"}
+volume_integration_eps: {value: 1.0e-3, unit: "-", source: "BRepGProp adaptive volume precision (agrees with analytic loft volume to 0.1 %)"}
+tess_angular_rad: {value: 0.35, unit: rad, source: "angular tessellation tolerance"}
+# --- render ---
+gallery_tile_px: {value: 320, unit: px, source: "SPEC §6"}
+render_supersample: {value: 2, unit: "-", source: "anti-aliasing factor"}
+render_scan_min_px: {value: 16, unit: px, source: "triangles with a larger pixel bounding box rasterise by scanline (box test cost grows with the box, scanline with the fragments)"}
+render_margin_frac: {value: 0.06, unit: "-", source: "frame margin"}
+render_views: {value: {iso: {dir: [-1.0, -1.0, 0.8], up: [0.0, 0.0, 1.0]}, top: {dir: [0.0, 0.0, 1.0], up: [-1.0, 0.0, 0.0]}, front: {dir: [-1.0, 0.0, 0.0], up: [0.0, 0.0, 1.0]}, side: {dir: [0.0, -1.0, 0.0], up: [0.0, 0.0, 1.0]}}, unit: "-", source: "camera direction (towards camera) and up per view"}
+render_light_camera: {value: [-0.35, 0.55, 0.75], unit: "-", source: "key light in camera frame (right, up, towards viewer)"}
+render_ambient: {value: 0.38, unit: "-", source: "Lambert ambient term"}
+render_diffuse: {value: 0.62, unit: "-", source: "Lambert diffuse term"}
+render_outline_depth_frac: {value: 0.012, unit: "-", source: "depth jump / scene size drawn as outline"}
+render_colours: {value: {surface: [0.80, 0.84, 0.90], body: [0.93, 0.93, 0.95], pod: [0.90, 0.91, 0.93], prop: [0.28, 0.30, 0.34], internal: [0.85, 0.45, 0.20], outline: [0.10, 0.11, 0.13], background: [1.0, 1.0, 1.0]}, unit: rgb, source: "neutral grey-blue palette"}
+# --- style (SPEC §7) ---
+sweep_max_deg: {value: 70, unit: deg, source: "novelty plan step 10: cap on any panel's quarter-chord sweep; the widened family sweep (55) plus deltas (up to +33) reached 88 deg and ruled lofts went invalid (one stub decode: panel swept ~85 deg); the old gene ranges topped out at 68 deg, so nothing from them changes"}
+fin_cant_deg: {value: 60, unit: deg, source: "assumed: a panel steeper than this reads as a fin (decoder fin cap, style features)"}
+fin_area_max_frac: {value: 0.45, unit: "-", source: "fin surface true area (all instances) / S; marks rounds 1-2: fins > 0.5 S marked bad 30/42 vs good 6/23"}
+fin_height_max_ref_frac: {value: 0.3, unit: "-", source: "fin z extent / reference length; marks rounds 1-2 (uncapped decode): tallest fin <= 0.3 ref bad 20 % (n 25), 0.3-0.6 bad 67-70 % (n 31), fin-free 12 % (user: cap fins, step 2 round 2)"}
+outer_panel_height_max_ref_frac: {value: 0.3, unit: "-", source: "novelty plan step 7: outer-panel z extent / reference length, the fin cap value (fin_height_max_ref_frac) applied to every outer panel (probe, 1,000 random stub decodes: 162 panels over 0.3 ref, 91 steeper than 60 deg and 71 shallower, up to 1.05 m; a height cap spares flat panels, so no angle trigger)"}
+style_panel_min_m: {value: 1.0e-6, unit: m, source: "panels shorter than this (coincident join stations) are skipped"}
+style_l2: {value: 1.0, unit: "-", source: "assumed ridge strength on standardised weights (a few dozen marks)"}
+style_k_folds: {value: 5, unit: count, source: "k-fold accuracy printed by tune-style"}
+style_fold_seed: {value: 7, unit: "-", source: "seed of the fold split (determinism)"}
+style_newton_iter: {value: 50, unit: count, source: "Newton iterations cap for the logistic fit"}
+style_newton_tol: {value: 1.0e-10, unit: "-", source: "max abs Newton step that ends the fit"}
+style_pool_size: {value: 1000, unit: count, source: "random genomes scored per top-by-style gallery"}
+style_gate_top_n: {value: 20, unit: count, source: "PLAN step 2 gate: top 20 by score"}
+s_min: {value: 0.6, unit: "-", source: "SPEC §7"}
+# --- mass (SPEC §8) ---
+surface_areal_density_kg_m2: {value: 0.6, unit: kg/m2, source: "assumed foam core + glass skin per wetted area"}
+body_areal_density_kg_m2: {value: 0.8, unit: kg/m2, source: "assumed glass/foam shell per wetted area"}
+surface_wetted_coeffs: {value: [1.977, 0.52], unit: "-", source: "Raymer: S_wet / S = 1.977 + 0.52 t/c"}
+surface_centroid_chord_frac: {value: 0.4, unit: "-", source: "assumed chordwise mass centroid of a surface"}
+spar_density_kg_m3: {value: 1550, unit: kg/m3, source: "carbon/epoxy tube"}
+spar_modulus_pa: {value: 1.0e+11, unit: Pa, source: "pultruded carbon tube bending modulus (~100 GPa)"}
+spar_allowable_pa: {value: 6.0e+8, unit: Pa, source: "assumed carbon tube allowable bending stress"}
+installed_power_w_per_kg: {value: 150, unit: W/kg, source: "assumed motor shaft power per kg MTOW (small electric UAV 100-250)"}
+motor_specific_power_w_per_kg: {value: 3000, unit: W/kg, source: "outrunner 3-5 kW/kg"}
+esc_specific_power_w_per_kg: {value: 15000, unit: W/kg, source: "assumed ESC ~40 g per 600 W"}
+prop_mass_per_diameter_sq_kg_m2: {value: 0.15, unit: kg/m2, source: "10 in plastic prop ~10 g"}
+battery_specific_energy_wh_per_kg: {value: 180, unit: Wh/kg, source: "Li-ion pack 150-250 Wh/kg"}
+battery_usable_frac: {value: 0.8, unit: "-", source: "assumed usable share of pack energy (reserve + ageing)"}
+battery_x_tol_m: {value: 0.02, unit: m, source: "assumed battery position tolerance (SPEC §8 CG range)"}
+avionics_mass_kg: {value: 0.15, unit: kg, source: "assumed FC + GPS + radio stack (avionics_box_m)"}
+servo_mass_kg: {value: 0.02, unit: kg, source: "9 g servo + linkage per control instance"}
+mass_growth_frac: {value: 0.05, unit: "-", source: "assumed design growth margin on sum of component masses"}
+# --- propulsion performance ---
+prop_efficiency: {value: 0.65, unit: "-", source: "small fixed-pitch prop in cruise"}
+motor_efficiency: {value: 0.85, unit: "-", source: "outrunner near rated load"}
+esc_efficiency: {value: 0.95, unit: "-", source: "typical ESC"}
+prop_figure_of_merit: {value: 0.7, unit: "-", source: "static thrust figure of merit (momentum theory)"}
+# --- derive (SPEC §8) ---
+derive_clmax_initial: {value: 1.0, unit: "-", source: "assumed first aircraft CLmax guess; replaced by the baseline value after one iteration"}
+derive_max_iter: {value: 10, unit: count, source: "SPEC §8 mass closure"}
+derive_rel_tol: {value: 1.0e-3, unit: "-", source: "closure tolerance on MTOW and battery / value"}
+derive_mtow_payload_ratio: {value: 4.0, unit: "-", source: "assumed first MTOW guess / payload mass"}
+derive_battery_wh_per_kg: {value: 20.0, unit: Wh/kg, source: "assumed first battery guess / MTOW guess"}
+derive_min_aspect_ratio: {value: 4.0, unit: "-", source: "s0_aspect_ratio gene lower bound: smallest wing the span limit must hold"}
+layout_tune_frac: {value: 0.25, unit: "-", source: "assumed: a named layout keeps its slot values; the slot gene shifts a float by this share of its offset from the range middle (0.25: about +-12 % of the range at the extremes)"}
+derive_power_infeasible_ratio: {value: 10.0, unit: "-", source: "user, novelty plan step 8 (plan example: 3): derive stops when the baseline electrical power at the dash point exceeds this multiple of installed_power_w; measured electrical / installed: 80 m/s dash stand-in 4.2 x (must pass), 500 m/s dash 11,158 x (must stop), sample brief 0.25 x; 3 would reject the 80 m/s case, 10 sits 2.4 x above it and ~1000 x below 500 m/s"}
+derive_mtow_ceiling_kg: {value: 1000000.0, unit: kg, source: "guard lifted on user request (was 25.0, small-UAV class limit); closure beyond it is infeasible"}
+ref_length_per_sqrt_area: {value: 1.6, unit: "-", source: "stub brief: 1.2 m / sqrt(0.55 m2)"}
+battery_sizing_margin: {value: 1.15, unit: "-", source: "assumed battery energy margin over the baseline mission"}
+stall_speed_margin: {value: 1.05, unit: "-", source: "assumed margin between the slowest required point and its CL limit"}
+loiter_stall_ratio: {value: 1.3, unit: "-", source: "assumed slowest loiter speed / stall speed"}
+loiter_speed_samples: {value: 7, unit: count, source: "speeds tried for the baseline minimum-power loiter"}
+pullup_speed_margin: {value: 1.05, unit: "-", source: "assumed pull-up speed over the n_limit CL-limit speed"}
+gust_alleviation: {value: [0.88, 5.3], unit: "-", source: "Pratt gust alleviation K = a mu / (b + mu) (CS-23)"}
+# --- aero evaluation ---
+aero_alpha_deg: {value: [0.0, 6.0], unit: deg, source: "linearisation angles of attack per speed"}
+aero_beta_deg: {value: 2.0, unit: deg, source: "sideslip for Cn_beta, Cl_beta"}
+aero_deflection_deg: {value: 10.0, unit: deg, source: "pitch-control test deflection for the trim derivatives"}
+aero_body_stations: {value: 7, unit: count, source: "fuselage sections per body for AeroBuildup (cost scales with sections)"}
+section_clmax_alpha_deg: {value: [0.0, 22.0, 1.0], unit: deg, source: "alpha sweep [lo, hi, step] for section clmax (NeuralFoil)"}
+vlm_spanwise_resolution: {value: 4, unit: count, source: "VLM spanwise panels per section"}
+vlm_chordwise_resolution: {value: 6, unit: count, source: "VLM chordwise panels"}
+blas_threads: {value: 1, unit: count, source: "OpenBLAS with 22 threads on small (300-800) solves is 500x slower than 1 thread on this host (VLM 2 s per solve); set at process start"}
+downwash_core_mac_frac: {value: 0.25, unit: "-", source: "assumed vortex core radius / MAC of the shedding surface (keeps joined and stacked surfaces finite)"}
+downwash_stations_per_panel: {value: 8, unit: count, source: "spanwise strips per aero panel where the horseshoe downwash is averaged (one midpoint sat beside a tip vortex)"}
+tier1_target_s: {value: 0.1, unit: s, source: "SPEC §8 tier-1 time target per candidate"}
+balance_bisect_iter: {value: 40, unit: count, source: "bisection steps for the farthest contained box slide (host length / 2^40 << 1 um)"}
+balance_target_tol: {value: 1.0e-4, unit: "-", source: "static-margin miss below which a balance counts as on target"}
+vlm_join_gap_frac: {value: 0.05, unit: "-", source: "user (step 3 gate): joined surface's tip pulled inboard by this share of its last panel in the VLM only (shared tip makes the AIC singular; probe: sane CLa on 7/7 joined designs)"}
+balance_np_iter: {value: 6, unit: count, source: "neutral-point re-estimates per balance (the NP drifts ~5 % of the CG slide; converges in 2-3)"}
+shift_iter: {value: 8, unit: count, source: "secant steps of the body-shift solve on CG (decode + mass only)"}
+fin_scale_trial: {value: 2.0, unit: "-", source: "trial fin area factor for the Cn_beta slope (Cn_beta near linear in fin area)"}
+mass_reserve_frac: {value: 0.15, unit: "-", source: "user (step 3 gate r3): baseline MTOW = (1 + growth)(1 + reserve) x sum of masses"}
+vertical_cant_deg: {value: 20, unit: deg, source: "user (step 3 gate r4): a panel canted over this counts as vertical area for directional stability scaling"}
+vertical_break_min_frac: {value: 0.3, unit: "-", source: "break_frac gene lower bound: an outer steep panel grows inboard no further"}
+fin_scale_max: {value: 3.0, unit: "-", source: "user (step 3 gate r4): vertical-area scaling cap; Cn_beta below target at the cap fails lateral"}
+added_fin_area_frac: {value: 0.06, unit: "-", source: "assumed base area / S of the added centreline fin (then scaled to the Cn_beta target, <= 3x)"}
+added_fin_aspect_ratio: {value: 1.5, unit: "-", source: "assumed added-fin aspect ratio (decoder convention)"}
+added_fin_root_z_frac: {value: 0.5, unit: "-", source: "assumed added-fin root height within the host half-height (upper body)"}
+pitch_control_chord_frac: {value: 0.30, unit: "-", source: "user (step 3 gate r4): minimum control chord / chord on the pitch-control surface"}
+pitch_control_span_frac: {value: [0.0, 1.0], unit: "-", source: "user (step 3 gate r4): pitch control over the full structural span"}
+incidence_rounds: {value: 4, unit: count, source: "secant rounds on the measured cruise deflection (incidence + box re-slide per round)"}
+incidence_tol_deg: {value: 0.1, unit: deg, source: "cruise deflection at the mid CG counted as zero"}
+# shadow areas (novelty plan step 9)
+area_scan_lines: {value: 3000, unit: count, source: "assumed scan lines along y per view (area error ~ strip width x discontinuities; 1 mm strips on a 3 m span, so a 6 mm fin sliver has ~6 lines; measured in tests/test_areas.py)"}
+area_body_stations: {value: 16, unit: count, source: "assumed super-ellipse sections sampled along x for the frontal body shadow (consecutive sections overlap)"}
+# --- novelty and search (SPEC §9) ---
+desc_strips_per_panel: {value: 8, unit: count, source: "spanwise strips per panel for the descriptor area histograms"}
+desc_x_centres: {value: [-0.6, -0.3, 0.0, 0.3, 0.6], unit: "sqrt(S)", source: "x bin centres about the lifting-area centroid (L = 1.6 sqrt(S): tails and canards sit near +-0.6)"}
+desc_y_centres: {value: [0.125, 0.375, 0.625, 0.875], unit: "-", source: "|y| / semi-span bin centres"}
+desc_z_centres: {value: [-0.15, 0.0, 0.15], unit: "sqrt(S)", source: "z bin centres about the lifting-area centroid (biplane gap ~ chord ~ 0.3 sqrt(S))"}
+desc_surface_count_max: {value: 4, unit: count, source: "genome surface slots (SPEC §4)"}
+desc_joined_count_max: {value: 3, unit: count, source: "surfaces that can join a tip (slots 1-3)"}
+desc_body_count_max: {value: 3, unit: count, source: "centre body + pod pair"}
+shaft_samples: {value: 41, unit: count, source: "samples along each propeller shaft (attach to hub) for the shaft check (~2 mm apart on a 0.1 m shaft)"}
+search_budget: {value: 5000, unit: count, source: "SPEC §9 default tier-1 evaluations per search"}
+search_batch_size: {value: 32, unit: count, source: "solutions per emitter per iteration (3 emitters: 96 per batch, ~6 per worker at 16 workers)"}
+search_cells: {value: 300, unit: count, source: "CVT cells; centroids from k-means on descriptors of random decodes + references (probe: 266/300 occupied by 1,000 random designs vs 25 with uniform samples)"}
+search_centroid_samples: {value: 2000, unit: count, source: "random genomes decoded for the CVT centroid samples"}
+search_refine_sigma: {value: 0.05, unit: "-", source: "assumed genome-space mutation around elites (refine emitter, seeded with the references)"}
+search_iso_sigma: {value: 0.05, unit: "-", source: "assumed isotropic part of the iso+line crossover emitter"}
+search_line_sigma: {value: 0.5, unit: "-", source: "assumed line part of the iso+line emitter (steps toward another elite, crossing topologies)"}
+search_fail_objective: {value: -100.0, unit: "-", source: "finite archive objective of a candidate whose evaluation failed (below any violation seen: max 12 in the funnel probe)"}
+search_finalists: {value: 10, unit: count, source: "SPEC §9: 10 finalists go to tier 2 (least total violation inside the novelty band; user Deviation §9)"}
+# randomness scale r in [0, 1] (novelty plan step 7): each knob is k(r) = r0 + r (r1 - r0), read through constants.knob
+randomness_default: {value: 0.5, unit: "-", source: "user, novelty plan step 7: Brief.randomness default"}
+knob_novelty_band_top: {r0: 2.0, r1: 10.0, unit: "d_min", source: "user, novelty plan step 7 (r = 0 is the old step-4 band top; 8-20 x d_min picks were joined / tall-panel defects, now guarded; r = 1 sits inside that range)"}
+knob_novelty_band_bottom: {r0: 1.0, r1: 2.0, unit: "d_min", source: "user, novelty plan step 7 (r = 0 is the old step-4 band bottom)"}
+knob_explore_sigma: {r0: 0.1, r1: 0.4, unit: "-", source: "user, novelty plan step 7: genome-space mutation of the explore emitter (was 0.2 fixed, wide mutation that flips choice genes)"}
+knob_first_batch_reference_share: {r0: 1.0, r1: 0.0, unit: "-", source: "user, novelty plan step 7: share of the first batch derived from reference genomes (references first, extras are refine-sigma mutated copies); the rest are random genomes"}
+knob_accept_other_failures_max: {r0: 2, r1: 12, unit: count, source: "user, novelty plan step 8: failed checks outside the passable bar a finalist may carry at tier 2 (was checks.yaml accept_other_failures_max = 2); r = 1 admits every check (11 checks in a report, 12 leaves margin)"}
+knob_rank_novelty_weight: {r0: 0.2, r1: 1.0, unit: "-", source: "user, novelty plan step 7: weight on novelty vs style in the finalist ranking (read by step 8)"}
+knob_critic_strangeness_weight: {r0: 1.0, r1: 3.0, unit: "-", source: "user, novelty plan step 7: visual critic weight on strangeness (read by step 12)"}
+search_winners: {value: 3, unit: count, source: "SPEC §9: first 3 passing tier 2 are built"}
+search_workers: {value: 16, unit: count, source: "worker processes (probe on this 22-thread host: 16 -> 4.4 /s, 22 -> 4.0 /s, 11 -> 3.9 /s)"}
+# step 5: internals (SPEC §10) and deliverables (SPEC §11)
+joiner_length_m: {value: 0.08, unit: m, source: "assumed spar joiner rod length (40 mm each side of the joint)"}
+hinge_marker_d_m: {value: 0.002, unit: m, source: "assumed hinge-line marker rod diameter (capped to hinge_fill_frac of the local thickness)"}
+hinge_fill_frac: {value: 0.5, unit: "-", source: "assumed max hinge marker diameter / local section thickness"}
+servo_tray_m: {value: [0.03, 0.015, 0.012], unit: m, source: "9 g servo tray: chordwise length, spanwise width, height (servo_mass_kg class)"}
+servo_tray_wall_m: {value: 0.0015, unit: m, source: "assumed servo tray wall"}
+mount_plate_radius_frac: {value: 0.12, unit: "-", source: "assumed motor mount plate radius / prop diameter (~20 mm on a 0.35 m prop)"}
+mount_plate_thickness_m: {value: 0.003, unit: m, source: "assumed plywood / G10 firewall thickness"}
+mount_plate_inset_m: {value: 0.01, unit: m, source: "assumed firewall distance inside the host end along the shaft"}
+mount_bolt_circle_frac: {value: 0.6, unit: "-", source: "bolt circle radius / plate radius"}
+mount_bolt_d_m: {value: 0.003, unit: m, source: "M3 motor bolts"}
+mount_bolt_count: {value: 4, unit: count, source: "typical outrunner cross mount"}
+bay_frame_wall_m: {value: 0.002, unit: m, source: "assumed bay frame wall (open-top tray around each box)"}
+hatch_thickness_m: {value: 0.0015, unit: m, source: "assumed hatch outline frame thickness"}
+hatch_rim_m: {value: 0.006, unit: m, source: "assumed hatch outline rim width"}
+recovery_plate_m: {value: [0.12, 0.04, 0.002], unit: m, source: "assumed recovery plate (belly skid strip, skid / gear mount, net hook) length, width, thickness"}
+recovery_fill_frac: {value: 0.8, unit: "-", source: "assumed max recovery plate half-width / local host half-width"}
+plate_skin_clearance_m: {value: 0.003, unit: m, source: "gap between hatch / recovery plates and the analytic skin (0.5 mm skin + ~1.3 mm body mesh sag + margin)"}
+outline_search_steps: {value: 30, unit: count, source: "bisection steps placing hatches / recovery plates against the host skin (~1e-9 of the host size)"}
+containment_ring_points: {value: 16, unit: count, source: "points per tube / disc section checked against the outer mould"}
+view_px: {value: 1024, unit: px, source: "SPEC §6 views at 1024 px"}
+viewer_three_version: {value: "0.160.0", unit: "-", source: "three.js release loaded by viewer.html from cdn.jsdelivr.net (SPEC §11)"}
+report_fidelity: {value: "Conceptual design. Tier-2 aerodynamics are a vortex-lattice model of the wings plus a buildup model for bodies and profile drag; masses come from areal densities and component tables; structure is a cantilever spar estimate; internals are placement envelopes checked analytically against the outer mould. None of it replaces wind-tunnel, structural or flight testing.", unit: "-", source: "SPEC §11 fidelity statement"}

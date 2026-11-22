@@ -1,0 +1,9 @@
+# Dash-80ms-3m-span stand-in (the original brief is not in this tree): the 500 m/s canard-dash mission
+# (designs/canard-dash-500ms-uav) with an 80 m/s dash and a 3 m span; MTOW ~2.6 kg, S ~0.18 m2 as in whatswrong.md.
+payload_mass_kg: 0.05
+payload_box_m: [0.1, 0.1, 0.1]
+span_max_m: 3.0
+cruise_speed_ms: 50
+range_km: 50
+launch: catapult
+dash_speed_ms: 80

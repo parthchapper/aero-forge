@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aeroforge"
+version = "0.3.0"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "aerosandbox==4.2.10",
+    "cadquery==2.8.0",
+    "ribs==0.12.1",
+    "trimesh==5.2.1",
+    "networkx==3.6.1",
+    "numpy==2.4.6",
+    "pydantic==2.14.3",
+    "pyyaml==6.0.3",
+    "pillow==13.0.0",
+    "threadpoolctl==3.8.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==9.2.0", "ruff==0.17.5"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+aeroforge = ["data/*.yaml", "data/airfoils/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["slow: CAD-heavy or search tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "ANN", "N", "SIM", "RUF"]

@@ -1,0 +1,6 @@
+{
+  "name": "aero-forge",
+  "version": "0.3.0",
+  "description": "Design novel small fixed-wing UAVs from a mission brief: derive, quality-diversity search, tier-2 checks, CAD (STEP/GLB), internals, report and 3D viewer.",
+  "author": { "name": "chapp" }
+}

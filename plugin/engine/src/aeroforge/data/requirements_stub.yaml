@@ -1,0 +1,8 @@
+# Fixed stand-in Requirements for the gallery until derive.py (step 3). Each entry {value, unit, source}.
+mtow_kg: {value: 3.0, unit: kg, source: "assumed mid-range small UAV"}
+lifting_area_min_m2: {value: 0.55, unit: m2, source: "assumed ~55 N/m2 wing loading at 3 kg"}
+span_max_m: {value: 2.2, unit: m, source: "assumed brief limit"}
+ref_length_m: {value: 1.2, unit: m, source: "assumed reference length"}
+battery_wh: {value: 120.0, unit: Wh, source: "assumed ~1 h cruise pack"}
+payload_box_m: {value: [0.18, 0.10, 0.07], unit: m, source: "assumed camera/gimbal box l, w, h"}
+recovery: {value: belly, unit: "-", source: "SPEC §4 brief default"}

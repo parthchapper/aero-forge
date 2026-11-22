@@ -1,0 +1,8 @@
+# 500 m/s dash stand-in from designs/canard-dash-500ms-uav and fast-dash-uav-100km: needs ~3.9 MW, so derive must stop at the power check.
+payload_mass_kg: 0.05
+payload_box_m: [0.1, 0.1, 0.1]
+span_max_m: 3.0
+cruise_speed_ms: 50
+range_km: 50
+launch: catapult
+dash_speed_ms: 500

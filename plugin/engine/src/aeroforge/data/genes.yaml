@@ -1,0 +1,91 @@
+# Genome rows: u in [0,1] -> lo + u (hi - lo) for float, choices[min(floor(u n), n - 1)] for choice.
+# Units are in the gene name suffix. Order defines the genome vector.
+# ref_default (optional, floats): the value an unlisted gene takes in reference.yaml instead of the range middle;
+# it keeps the 44 references unchanged when a range widens or a gene is added (novelty plan step 10).
+genes:
+  - {name: fam_sweep_deg, kind: float, lo: 0, hi: 55, ref_default: 17.5, meaning: "family quarter-chord sweep magnitude; sign per surface"}
+  - {name: fam_taper, kind: float, lo: 0.3, hi: 1.0, meaning: "family tip/root chord ratio"}
+  - {name: fam_dihedral_deg, kind: float, lo: -15, hi: 25, ref_default: 2.0, meaning: "family dihedral added to every surface cant"}
+  - {name: fam_tip_style, kind: choice, choices: ["square", "rounded", "raked"], meaning: "family tip treatment"}
+  - {name: fam_airfoil, kind: choice, choices: ["naca00", "naca24", "naca44", "naca33"], meaning: "NACA 4-digit camber family: naca<camber %><position tenths>"}
+  - {name: fam_tc, kind: float, lo: 0.08, hi: 0.15, meaning: "family thickness/chord"}
+  - {name: fam_body_fineness, kind: float, lo: 4, hi: 10, meaning: "body length / max diameter"}
+  - {name: fam_body_section_exp, kind: float, lo: 2, hi: 5, meaning: "super-ellipse exponent of body sections (2 ellipse, higher boxier)"}
+  - {name: s0_root_x_frac, kind: float, lo: 0.3, hi: 0.6, meaning: "root mid-chord station along host length"}
+  - {name: s0_root_z_frac, kind: float, lo: -1, hi: 1, meaning: "root height within host half-height"}
+  - {name: s0_area_weight, kind: float, lo: 0.6, hi: 1.0, meaning: "share of lifting area before normalisation"}
+  - {name: s0_aspect_ratio, kind: float, lo: 4, hi: 20, ref_default: 8.0, meaning: "aspect ratio (b^2/A of the mirrored pair)"}
+  - {name: s0_sweep_sign, kind: choice, choices: ["aft", "forward"], meaning: "sign applied to family sweep"}
+  - {name: s0_sweep_delta_deg, kind: float, lo: -8, hi: 8, meaning: "bounded delta on family sweep"}
+  - {name: s0_cant_deg, kind: float, lo: -15, hi: 15, ref_default: 0.0, meaning: "inner panel cant added to family dihedral; +90 fin up"}
+  - {name: s0_break_frac, kind: float, lo: 0.3, hi: 1.0, meaning: "break station / semi-span; >= break_none_frac means no break"}
+  - {name: s0_outer_cant_delta_deg, kind: float, lo: -45, hi: 80, meaning: "outer panel cant relative to inner"}
+  - {name: s0_outer_sweep_delta_deg, kind: float, lo: -15, hi: 25, meaning: "outer panel sweep relative to inner"}
+  - {name: s0_control_frac, kind: float, lo: 0.0, hi: 0.35, meaning: "control chord fraction; below control_min_chord_frac means none"}
+  - {name: s1_active, kind: choice, choices: ["off", "on"], meaning: "surface present"}
+  - {name: s1_host, kind: choice, choices: ["centre", "pod"], meaning: "root host: centre body (or surface0 centre) or pod pair"}
+  - {name: s1_root_x_frac, kind: float, lo: 0.05, hi: 0.95, meaning: "root mid-chord station along host length"}
+  - {name: s1_root_z_frac, kind: float, lo: -1, hi: 1, meaning: "root height within host half-height"}
+  - {name: s1_area_weight, kind: float, lo: 0.1, hi: 1.0, meaning: "share of lifting area before normalisation"}
+  - {name: s1_aspect_ratio, kind: float, lo: 2, hi: 8, meaning: "aspect ratio (b^2/A of the mirrored pair)"}
+  - {name: s1_sweep_sign, kind: choice, choices: ["aft", "forward"], meaning: "sign applied to family sweep"}
+  - {name: s1_sweep_delta_deg, kind: float, lo: -8, hi: 8, meaning: "bounded delta on family sweep"}
+  - {name: s1_cant_deg, kind: float, lo: -90, hi: 90, meaning: "inner panel cant added to family dihedral; +90 fin up"}
+  - {name: s1_break_frac, kind: float, lo: 0.3, hi: 1.0, meaning: "break station / semi-span; >= break_none_frac means no break"}
+  - {name: s1_outer_cant_delta_deg, kind: float, lo: -45, hi: 80, meaning: "outer panel cant relative to inner"}
+  - {name: s1_outer_sweep_delta_deg, kind: float, lo: -15, hi: 25, meaning: "outer panel sweep relative to inner"}
+  - {name: s1_tip_join, kind: choice, choices: ["none", "surface0", "surface1", "surface2"], meaning: "join tip to a lower-index surface tip"}
+  - {name: s1_control_frac, kind: float, lo: 0.0, hi: 0.35, meaning: "control chord fraction; below control_min_chord_frac means none"}
+  - {name: s2_active, kind: choice, choices: ["off", "on"], meaning: "surface present"}
+  - {name: s2_host, kind: choice, choices: ["centre", "pod"], meaning: "root host: centre body (or surface0 centre) or pod pair"}
+  - {name: s2_root_x_frac, kind: float, lo: 0.05, hi: 0.95, meaning: "root mid-chord station along host length"}
+  - {name: s2_root_z_frac, kind: float, lo: -1, hi: 1, meaning: "root height within host half-height"}
+  - {name: s2_area_weight, kind: float, lo: 0.1, hi: 1.0, meaning: "share of lifting area before normalisation"}
+  - {name: s2_aspect_ratio, kind: float, lo: 2, hi: 8, meaning: "aspect ratio (b^2/A of the mirrored pair)"}
+  - {name: s2_sweep_sign, kind: choice, choices: ["aft", "forward"], meaning: "sign applied to family sweep"}
+  - {name: s2_sweep_delta_deg, kind: float, lo: -8, hi: 8, meaning: "bounded delta on family sweep"}
+  - {name: s2_cant_deg, kind: float, lo: -90, hi: 90, meaning: "inner panel cant added to family dihedral; +90 fin up"}
+  - {name: s2_break_frac, kind: float, lo: 0.3, hi: 1.0, meaning: "break station / semi-span; >= break_none_frac means no break"}
+  - {name: s2_outer_cant_delta_deg, kind: float, lo: -45, hi: 80, meaning: "outer panel cant relative to inner"}
+  - {name: s2_outer_sweep_delta_deg, kind: float, lo: -15, hi: 25, meaning: "outer panel sweep relative to inner"}
+  - {name: s2_tip_join, kind: choice, choices: ["none", "surface0", "surface1", "surface2"], meaning: "join tip to a lower-index surface tip"}
+  - {name: s2_control_frac, kind: float, lo: 0.0, hi: 0.35, meaning: "control chord fraction; below control_min_chord_frac means none"}
+  - {name: s3_active, kind: choice, choices: ["off", "on"], meaning: "surface present"}
+  - {name: s3_host, kind: choice, choices: ["centre", "pod"], meaning: "root host: centre body (or surface0 centre) or pod pair"}
+  - {name: s3_root_x_frac, kind: float, lo: 0.05, hi: 0.95, meaning: "root mid-chord station along host length"}
+  - {name: s3_root_z_frac, kind: float, lo: -1, hi: 1, meaning: "root height within host half-height"}
+  - {name: s3_area_weight, kind: float, lo: 0.1, hi: 1.0, meaning: "share of lifting area before normalisation"}
+  - {name: s3_aspect_ratio, kind: float, lo: 2, hi: 8, meaning: "aspect ratio (b^2/A of the mirrored pair)"}
+  - {name: s3_sweep_sign, kind: choice, choices: ["aft", "forward"], meaning: "sign applied to family sweep"}
+  - {name: s3_sweep_delta_deg, kind: float, lo: -8, hi: 8, meaning: "bounded delta on family sweep"}
+  - {name: s3_cant_deg, kind: float, lo: -90, hi: 90, meaning: "inner panel cant added to family dihedral; +90 fin up"}
+  - {name: s3_break_frac, kind: float, lo: 0.3, hi: 1.0, meaning: "break station / semi-span; >= break_none_frac means no break"}
+  - {name: s3_outer_cant_delta_deg, kind: float, lo: -45, hi: 80, meaning: "outer panel cant relative to inner"}
+  - {name: s3_outer_sweep_delta_deg, kind: float, lo: -15, hi: 25, meaning: "outer panel sweep relative to inner"}
+  - {name: s3_tip_join, kind: choice, choices: ["none", "surface0", "surface1", "surface2"], meaning: "join tip to a lower-index surface tip"}
+  - {name: s3_control_frac, kind: float, lo: 0.0, hi: 0.35, meaning: "control chord fraction; below control_min_chord_frac means none"}
+  - {name: body_on, kind: choice, choices: ["off", "on"], meaning: "centre body present (forced on if boxes do not fit the centre section)"}
+  - {name: body_length_frac, kind: float, lo: 0.3, hi: 1.0, meaning: "centre body length / reference length (lower bound)"}
+  - {name: pods_on, kind: choice, choices: ["off", "on"], meaning: "pod pair on surface0"}
+  - {name: pod_y_frac, kind: float, lo: 0.15, hi: 0.9, meaning: "pod station / surface0 inner panel length"}
+  - {name: pod_x_frac, kind: float, lo: 0.1, hi: 0.6, meaning: "pod length fraction ahead of the surface0 leading edge"}
+  - {name: pod_length_frac, kind: float, lo: 0.15, hi: 0.6, meaning: "pod length / reference length"}
+  - {name: prop_pattern, kind: choice, choices: ["centre", "pods", "centre_pods"], meaning: "propeller count and hosts"}
+  - {name: prop_direction, kind: choice, choices: ["tractor", "pusher"], meaning: "propeller at host nose or tail"}
+  - {name: prop_gap_frac, kind: float, lo: 0, hi: 1, meaning: "hub gap from host end between prop_gap_min/max"}
+  - {name: prop_z_frac, kind: float, lo: -0.8, hi: 0.8, meaning: "hub height offset / host end radius"}
+  - {name: body_nose_frac, kind: float, lo: 0.10, hi: 0.35, ref_default: 0.22, meaning: "centre body nose cone length / body length (was a constant)"}
+  - {name: body_tail_frac, kind: float, lo: 0.15, hi: 0.45, ref_default: 0.40, meaning: "centre body tail cone length / body length (was a constant)"}
+  - {name: body_width_ratio, kind: float, lo: 0.6, hi: 2.0, ref_default: 1.0, meaning: "body width / height as a multiple of the box-fit ratio; the body grows, never shrinks, so every box still fits (1 = today)"}
+  - {name: body_tail_upsweep_deg, kind: float, lo: 0, hi: 15, ref_default: 0.0, meaning: "tail cone axis bends upward by this angle"}
+  - {name: box_layout, kind: choice, choices: ["inline", "side_by_side", "stacked", "wing_root"], meaning: "how battery, payload and avionics boxes are packed; wing_root tries surface0 first"}
+  - {name: wing_area_scale, kind: float, lo: 1.0, hi: 3.0, ref_default: 1.0, meaning: "lifting area S = k S_min (S_min = stall-speed area); capped so the span stays within span_max (S <= span_max^2 / derive_min_aspect_ratio)"}
+  - {name: layout, kind: choice, choices: ["free", "conventional", "canard", "tandem", "three_surface", "flying_wing", "joined"], meaning: "slot roles of surfaces s1-s3 from data/layouts.yaml (free: the slot genes alone decide); the slot genes fine-tune a named layout"}
+  - {name: s0_root_chord_scale, kind: float, lo: 1.0, hi: 2.0, ref_default: 1.0, meaning: "strake / glove: inner-panel root chord stretched by this factor, all chords then rescaled to keep the area (unjoined surfaces)"}
+  - {name: s0_twist_deg, kind: float, lo: -6, hi: 2, ref_default: 0.0, meaning: "linear washout from root to tip, added to the incidence per section"}
+  - {name: s1_root_chord_scale, kind: float, lo: 1.0, hi: 2.0, ref_default: 1.0, meaning: "strake / glove: inner-panel root chord stretched by this factor, all chords then rescaled to keep the area (unjoined surfaces)"}
+  - {name: s1_twist_deg, kind: float, lo: -6, hi: 2, ref_default: 0.0, meaning: "linear washout from root to tip, added to the incidence per section"}
+  - {name: s2_root_chord_scale, kind: float, lo: 1.0, hi: 2.0, ref_default: 1.0, meaning: "strake / glove: inner-panel root chord stretched by this factor, all chords then rescaled to keep the area (unjoined surfaces)"}
+  - {name: s2_twist_deg, kind: float, lo: -6, hi: 2, ref_default: 0.0, meaning: "linear washout from root to tip, added to the incidence per section"}
+  - {name: s3_root_chord_scale, kind: float, lo: 1.0, hi: 2.0, ref_default: 1.0, meaning: "strake / glove: inner-panel root chord stretched by this factor, all chords then rescaled to keep the area (unjoined surfaces)"}
+  - {name: s3_twist_deg, kind: float, lo: -6, hi: 2, ref_default: 0.0, meaning: "linear washout from root to tip, added to the incidence per section"}

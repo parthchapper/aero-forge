@@ -1,0 +1,16 @@
+{
+  "name": "aero-forge-market",
+  "owner": {
+    "name": "chapp"
+  },
+  "metadata": {
+    "description": "aero-forge: novel UAV designs from a mission brief."
+  },
+  "plugins": [
+    {
+      "name": "aero-forge",
+      "source": "./plugin",
+      "description": "Design novel small fixed-wing UAVs from a mission brief: physics-checked, CAD, report and 3D viewer."
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+# Check bands and brief defaults (SPEC §4, §8). Each entry {value, unit, source}.
+# --- brief defaults ---
+launch_stall_max_ms: {value: {hand: 10.0, catapult: 15.0, runway: 13.0}, unit: m/s, source: "assumed default stall_max by launch (SPEC §4: from launch)"}
+launch_speed_ms: {value: {hand: 11.0, catapult: 18.0, runway: 16.0}, unit: m/s, source: "assumed release / catapult end / rotation speed"}
+launch_thrust_to_weight_min: {value: {hand: 0.5, catapult: 0.3, runway: 0.4}, unit: "-", source: "assumed static T/W to climb away after launch"}
+dash_cruise_ratio: {value: 1.3, unit: "-", source: "SPEC §4 dash_speed_ms default"}
+n_limit_default: {value: 4.0, unit: "-", source: "SPEC §4"}
+gust_ms_default: {value: 5.0, unit: m/s, source: "SPEC §4"}
+altitude_m_default: {value: 0.0, unit: m, source: "SPEC §4"}
+efficiency_floor_default: {value: 0.8, unit: "-", source: "SPEC §4"}
+# --- bands (SPEC §8) ---
+launch_speed_stall_ratio: {value: 1.2, unit: "-", source: "SPEC §8 stall: launch speed >= 1.2 Vs"}
+clmax_3d_factor: {value: 0.9, unit: "-", source: "assumed aircraft CLmax / area-weighted section clmax (SPEC §8)"}
+trim_deflection_max_deg: {value: 15.0, unit: deg, source: "SPEC §8 trim"}
+trim_cl_max_frac: {value: 0.85, unit: "-", source: "SPEC §8 trim: CL <= 0.85 CLmax"}
+trim_cm_scale: {value: 0.05, unit: "-", source: "assumed Cm normalising an untrimmable residual (no pitch control)"}
+static_margin_band: {value: [0.05, 0.20], unit: "-", source: "SPEC §8 static margin / MAC"}
+static_margin_target: {value: 0.125, unit: "-", source: "user (step 3 gate): balance every design to mid-band aft-CG static margin"}
+lateral_scale_per_rad: {value: 0.05, unit: 1/rad, source: "assumed typical |Cn_beta|, |Cl_beta| normalising the lateral margin"}
+cn_beta_target: {value: 0.01, unit: 1/rad, source: "assumed small positive weathercock minimum (user r3); conventional baseline 0.012 at tier 1"}
+passable_checks: {value: [static, trim, lateral, stall, structure, fit], unit: "-", source: "user (step 3 gate r3): step-4 bar until further notice (SPEC §14.3 deviation)"}
+stall_order_span_frac_max: {value: 0.7, unit: "-", source: "SPEC §8 stall order: peak cl/clmax inboard of 70 % semi-span"}
+power_available_frac: {value: 0.8, unit: "-", source: "SPEC §8 power: P_required <= 0.8 P_available"}
+structure_safety_factor: {value: 1.5, unit: "-", source: "SPEC §8 structure"}
+tip_deflection_max_frac: {value: 0.10, unit: "-", source: "SPEC §8 structure: tip deflection <= 10 % semi-span"}

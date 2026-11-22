@@ -1,0 +1,68 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+# aero-forge
+Claude Code plugin + Python engine that turns a mission brief into one novel, physics-checked small fixed-wing UAV (CAD, report, 3D viewer). Principle (SPEC §1): size by physics, shape by search, geometry by code; Claude never writes geometry or genome values (plan v2 lets Claude only narrow search ranges from the mission text).
+
+## Workflow (read first)
+Before any work: read RULES.md, then CHANGELOG.md (Decisions, Known issues, last step entry).
+Work on exactly one step: 0.3 steps are in PLAN.md, the 1.0 upgrade steps U0–U10 are in `Fix/plan.md` (older plans `Fix/plan_v1_steps7-13.md` and `Fix/fix.md` are superseded, do not build from them). Read only the SPEC.md sections that step lists.
+Stop at the step's gate. RULES.md holds the hard rules (3 fix tries per failing test, never weaken tests, functions ≤ 50 lines, files ≤ 400 lines, no magic numbers, determinism via passed-in `Generator`).
+
+## Commands
+All engine commands run from `plugin/engine` with the venv Python (host `python` is 3.14: never use it for the engine). Below `PY` = `~/.aero-forge/venv/Scripts/python.exe` (Windows) / `~/.aero-forge/venv/bin/python` (POSIX).
+- (Re)install env: `python plugin/scripts/setup_env.py --dev` (any host Python; finds or installs 3.11 via uv). `/forge setup` swaps the venv to a non-editable install: re-run this before developing.
+- Fast suite (limit 90 s): `PY -m pytest -q -x --tb=short -m "not slow"`; slow: `-m slow`; one test: `PY -m pytest -q -x --tb=short tests/test_search.py::test_name`. Send long output to a file and read the tail.
+- Lint: `PY -m ruff check src tests ../scripts ../hooks` and `PY -m ruff format --check src tests ../scripts ../hooks`.
+- CLI: `PY -m aeroforge <cmd>`; stdout is a JSON summary, artifacts go to disk; exit 0 ok, 1 check failed, 2 bad input, 3 environment. Commands: `validate`, `derive`, `search`, `verify`, `build [--full]`, `render`, `report`, `check`, `gallery --n --seed [--top-by-style]`, `tune-style`, `demo --runs N`.
+- Plugin: `claude plugin validate ./plugin`; self-containment test from a `git archive` copy. Headless: `claude -p "/forge ..." --allowedTools Skill Bash ...` from PowerShell (Git Bash rewrites a leading `/`).
+- Exact dependency pins live in `plugin/engine/pyproject.toml`; change only with a Decisions line.
+
+## Architecture
+Layout: `plugin/` is self-contained (installed copies live in `~/.claude/plugins/cache`, so use `${CLAUDE_PLUGIN_ROOT}`): `skills/forge/SKILL.md` (the `/forge setup|new|status` workflow), `agents/visual-critic.md`, `hooks/validate_brief.py` (validates `designs/**/brief.yaml` on write), `scripts/setup_env.py`, `engine/` (package `aeroforge` in `src/`). Design folders go to `designs/<id>/` (SPEC §11); user state lives in `~/.aero-forge/` (venv, `history.jsonl`, gate galleries).
+
+Pipeline (one CLI command per stage; stages talk through files in the design dir):
+1. `derive`: `brief.yaml` → `requirements.json` (`derive.py`, `brief.py`, `models.py`).
+2. `search`: pyribs quality-diversity loop over a genome (`genetable.py` genes/unpack, `genome.py` decode → frozen pydantic `Design`; `planform.py`, `layout.py`, `shapes.py` build surfaces and bodies). Each candidate gets tier-1 checks (aerosandbox AeroBuildup via `aero.py`, `checks.py`, `mass.py`, `balance.py`), a style score (`style.py`) and a 16-D descriptor (`descriptor.py`); novelty = distance to `data/reference.yaml` ∪ `history.jsonl`. Workers are spawn processes (`search_cli.py`, worker code in `candidate.py`). `select` in `search.py` picks finalists (passable ∧ styled ∧ novelty in the randomness band) → `finalists.json`.
+3. `verify`: tier-2 (VLM, trim, stability, stall, structure, fit: `tier2.py`, `trim.py`, `downwash.py`) per finalist; writes `finalists/<id>/design.yaml` (the delivered design, since the box slide can change genome + adjust) and `verified.json`.
+4. `build` / `render` / `report`: `geom.py` (CadQuery lofts) → `mesh.py` (trimesh GLB, per-part volume checks) → `assemble.py`, `internals.py` + `hardpoints.py` (spars, trays, bays), `render.py` (own z-buffer rasteriser), `report.py`, `viewer.py` (self-contained three.js page). `build` adopts the verified `design.yaml`.
+5. Pure core, I/O at the edges: `decode`, `desc`, features and checks take data and return data; file and process I/O live in `cli.py`, `*_cli.py` and the writers.
+
+Tunables are never in code: `data/{genes,checks,style,constants,layouts,reference}.yaml` read through `constants.py` (`knob_*` entries have r0/r1 values interpolated by randomness r). The same seed + history + brief gives the same design.
+
+Docs: SPEC.md (contract), PLAN.md (0.3 steps 0–6), `Fix/plan.md` (upgrade U0–U10), SPEC_v3.md (the superseded spec), CHANGELOG.md (Decisions, Deviations, Known issues, per-step log; very large, grep it rather than reading it whole).
+
+## Status
+- **aero-forge 1.0 upgrade in progress; steps U0–U10 in `Fix/plan.md`** (new numbering; the step numbers below are the 0.3 history). SPEC.md is v4 (v3 in SPEC_v3.md). U0 built (decisions A1, B1 applied; baseline_0.3 frozen in tests/fixtures/baseline_0.3/ + test_baseline_0_3.py; pre-1.0 copies in archive_2026-11-22_pre-1.0/); user gate waiting. Do one U step per session: "Do upgrade step Un from Fix/plan.md."
+- Steps 0–9 done, gates passed (step 4 demo: ~/.aero-forge/demo_sample; step 5 viewer: ~/.aero-forge/step5_gate; step 6 acceptance: ~/.aero-forge/accept6).
+- Step 10 (new shape genes): built; its two OPEN items were settled in U0 (A1: stub may hold boxes in the wing; B1: fineness measured on the inline diameter, SPEC v4 §5.9). Genome has 86 genes (layout, wing_area_scale, sN_root_chord_scale, sN_twist_deg, body nose/tail/width/upsweep, box_layout); `ref_default` keeps the 44 references unchanged and tests/fixtures/baseline_pre_step10/ + test_baseline_step10.py guard that.
+- Search/selection facts: finalists = passable ∧ styled ∧ novelty inside the band set by randomness r (constants.yaml `knob_novelty_band_bottom/_top`), ranked by w(r) z(novelty) + (1 − w(r)) z(style), spread ≥ d_min apart; `verify` keeps score order with `accept_other_failures_max(r)` (2 at r = 0, every check at r = 1; passable is always required); `derive` stops at electrical power > 10 × installed at the dash point. `areas.py` computes shadow areas (in report.md and finalists.json). `Requirements.lifting_area_min_m2` is the stall area; every `Design` carries its own `lifting_area_m2`.
+- Test data: brief `plugin/engine/tests/fixtures/brief_sample.yaml`, stand-ins `brief_dash_80ms.yaml` / `brief_dash_500ms.yaml`; baseline = `conventional` in data/reference.yaml (sparse gene overrides, reference.py encodes). Fixture winners = demo_sample runs 1, 2, 3, 6, 7 in tests/fixtures/winners/ (migrated for step 10; originals in archive_2026-11-17/).
+- Style marks: `marks_<brief>.json` (round 1, seed 1), `_seed2`, `_seed3` (archived in archive_2026-11-17/marks/); retune with `python -m aeroforge tune-style` on all of them (each decodes under its own brief; pre-cap marks on capped fins are dropped).
+- User decisions baked in: fin area capped at 0.45 S and height at 0.3 ref length (style features stay fin-blind); outer panels height-capped at 0.3 × ref length in `build_planform`; fast suite limit 90 s and never shrink tests; verify accepts passable + at most `accept_other_failures_max(r)` other failures (the old §14.3/§14.4 gates are in SPEC_v3.md; SPEC v4 §14 is the U10 list).
+- Old `plugins/alien-drone-studio` project was removed in the step 0 commit; it is in git history only. Do not revive it.
+
+## Library gotchas (verified steps 0–10, details in CHANGELOG Decisions)
+- aerosandbox results are 1-element arrays: use `np.ravel(r["CL"])[0]`. VortexLatticeMethod ignores `ControlSurface.deflection`: for tier 2 deflect via `Airfoil.add_control_surface(deflection, hinge_point_x)`. AeroBuildup gives `D_profile` / `D_induced`; VLM CD is induced only. Section clmax: `Airfoil.get_aero_from_neuralfoil(alpha=..., Re=...)`.
+- AeroBuildup has no downwash between surfaces (downwash.py adds horseshoe interference); ~12 ms per wing section, both halves always; `wing_aerodynamics(wing)` alone is reusable for one deflected surface. VLM ignores fuselages; per-panel forces_geometry after run(); tip-joined layouts give garbage loads.
+- asb's own CadQuery export is unfit (mm, ruled, open shells): geometry uses our own spline lofts in metres.
+- CadQuery: periodic `Edge.makeSpline` wires loft fine; body–wing fillets fail → parts stay separate overlapping solids (no union, no blend), logged. Surface lofts: `BRepOffsetAPI_ThruSections(True, True)` + `CheckCompatibility(False)` (default compat pass twists canted multi-section lofts; smoothing loft overshoots). Bodies: ThruSections + `AddVertex(nose)`.
+- `Solid.Volume()` under-reports ruled lofts (up to ~28 %); use `BRepGProp.VolumeProperties_s(shape, props, eps)`. OCC caches the first tessellation (clear with `BRepTools.Clean_s`) and can fold apex lofts at some tolerances → mesh.py volume-checks every part.
+- STEP: `cq.Assembly.export(..., unit="M")` (default labels metres as mm); read back with `cq.Assembly.importStep(path, unit="M")`; assembly root name must differ from every part name.
+- trimesh: name parts with `add_geometry(..., node_name=n, geom_name=n)`; `split()` needs networkx.
+- pyribs 0.12.1: `CVTArchive(centroids=..., samples=...)` (no `cells=`); `ask()`/`tell(objective, measures)`. scikit-learn k-means inside CVTArchive only takes seeds in [0, 2^32): search.py derives the archive seed from the run seed.
+- YAML: quote `on`/`off` (else booleans); write float exponents with a sign (`6.0e+8`), else they load as strings. `constants.load_table` is cached: after tune-style rewrites style.yaml, score in a new process.
+- OpenBLAS with 22 threads makes small solves ~500× slower (VLM 2 s/solve): `threadpool_limits(1)` after numpy is imported (cli.main, conftest fixture); a limit set before numpy loads does nothing.
+- Logistic fit: plain Newton diverges on separable marks → step halving + lstsq (tune.py); sigmoid via tanh.
+- Never edit source while a background search / pytest run spawns workers: spawned workers import the half-edited module (step 10 lost a survey that way).
+- Randomness r: `Brief.randomness` / `--randomness`; knobs are `knob_*` entries with r0 / r1 in constants.yaml read through `constants.knob`; a search with no `--seed` and no brief seed draws a fresh 128-bit seed and records it in finalists.json / genome.json / report.md.
+- Genome plumbing: body axis height = `shapes.body_axis_z` (tail upsweep); section twist = `shapes.section_incidence_deg`; layouts = data/layouts.yaml applied in `genetable.unpack`; `solve_layout` verifies its linear shortcut against the absolute height cap and falls back to the Illinois solve.
+- Internals: `hardpoints(design, recovery)` computes them (not a Design field); surface items are tested in the section frame (exact for ruled lofts).
+- render: triangles > `render_scan_min_px` use the scanline path (long thin facets made the box test ~150 s per 1024 px view).
+- reference.yaml entries may use `base: <name>`; desc is blind to fin side and prop count (don't add references differing only there); desc is computed on the plain decoded genome.
+- Plugin: local-directory marketplaces run in place (`${CLAUDE_PLUGIN_ROOT}` = source dir). Plugin agents may not use hooks / mcpServers / permissionMode frontmatter. Background Bash in a skill: give search/verify `timeout: 7200000` (default background limit 10 min).
+
+## Working habits
+- Keep CHANGELOG.md updated every step (plan before code, result/tests/gate after); never delete past entries.
+- Update this file's Status and gotchas at the end of each step.

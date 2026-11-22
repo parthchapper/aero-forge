@@ -1,0 +1,8 @@
+# Sample brief: hand-launched survey UAV with a small camera, one hour aloft.
+payload_mass_kg: 0.5
+payload_box_m: [0.18, 0.10, 0.07]
+span_max_m: 2.2
+cruise_speed_ms: 18.0
+endurance_min: 60
+launch: hand
+recovery: belly

@@ -1,0 +1,9 @@
+# Stub brief with small boxes and a larger wing, so boxes fit surface0 and the no-body branch shows;
+# wheels recovery exercises the ground-line rule. Each entry {value, unit, source}.
+mtow_kg: {value: 3.0, unit: kg, source: "as requirements_stub"}
+lifting_area_min_m2: {value: 0.9, unit: m2, source: "assumed larger wing so a thick centre section can hold boxes"}
+span_max_m: {value: 2.2, unit: m, source: "as requirements_stub"}
+ref_length_m: {value: 1.2, unit: m, source: "as requirements_stub"}
+battery_wh: {value: 10.0, unit: Wh, source: "assumed small pack (short test flights)"}
+payload_box_m: {value: [0.06, 0.04, 0.02], unit: m, source: "assumed small sensor box l, w, h"}
+recovery: {value: wheels, unit: "-", source: "assumed: exercises the ground-line clearance rule"}

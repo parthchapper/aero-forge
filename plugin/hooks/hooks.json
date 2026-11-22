@@ -1,0 +1,17 @@
+{
+  "description": "Validate designs/**/brief.yaml after every Write or Edit (SPEC §13).",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "py=\"$HOME/.aero-forge/venv/bin/python\"; [ -x \"$py\" ] || py=\"$HOME/.aero-forge/venv/Scripts/python.exe\"; [ -x \"$py\" ] || exit 0; \"$py\" \"${CLAUDE_PLUGIN_ROOT}/hooks/validate_brief.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
