@@ -1,7 +1,7 @@
 """Queries on a faceted body's polyhedron: containment, box fit, planarity, closure, samples
 (SPEC §5 invariants 5, 11, 12). Pure numpy, body frame, metres."""
 
-from functools import cache, lru_cache
+from functools import cache
 
 import numpy as np
 
@@ -122,7 +122,6 @@ def _split_long_edges(tris: np.ndarray, spacing_m: float) -> np.ndarray:
     return np.concatenate(done) if done else np.zeros((0, 3, 3))
 
 
-@lru_cache(maxsize=64)
 def sample_points(poly: Polyhedron, spacing_m: float) -> np.ndarray:
     """Points covering every face, vertices and edges included: no point of a face is farther
     than spacing_m from one (faces fan-triangulated, then bisected; body frame)."""
@@ -135,7 +134,6 @@ def sample_points(poly: Polyhedron, spacing_m: float) -> np.ndarray:
     # mirror it: the sample set is then exactly symmetric about y = 0 (SPEC §5 invariant 1)
     right = pts[pts[:, 1] > 0.0]
     out = np.vstack([pts[pts[:, 1] == 0.0], right, right * np.array([1.0, -1.0, 1.0])])
-    out.flags.writeable = False  # cached and shared
     return out
 
 
