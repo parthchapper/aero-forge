@@ -120,6 +120,7 @@ CAD build succeeds for ≥ 98 % of random genomes; a failure raises a typed erro
 ## 6 Geometry and render
 - `geom`: spline lofts through airfoil sections; super-ellipse body sections with tangent-continuous nose and tail; tip treatments. Fillets at junctions fail in the kernel, so parts stay separate overlapping solids (logged).
 - (U2) Faceted bodies: planar-face solids, built from polygon wire → face → shell → solid and checked with the OCC shape checker. A face that would twist (a shape break between stations) is split into two flat triangles. Panel count N = K(S−1) + K·B + n_nose + n_tail. (U3) Faceted wings: ruled lofts between polygon sections.
+- (U2) Faceted sizing differs from smooth sizing: the boxes must fit the flat-panel envelope (closed-form box fit, then the B1 fineness lengthening of §5), so for the same genome a faceted body is longer than the smooth one: over 60 stub genomes 0.95 to 2.72 times its length (median 1.28), 0.63 to 3.46 times its wetted area and 0.62 to 10.2 times its frontal area (part of the frontal jump is the shadow of a rising tail). A search over faceted bodies therefore lands in a different mass and drag range from a smooth one; compare designs by checks, not by genome.
 - One named solid per part, stable names: `surface0_L`, `body0`, `pod_R`, `prop1`.
 - `mesh`: tessellate per part → trimesh Scene with node names → `assembly.glb`; STL per part; volume-checked against the exact volume.
 - `render`: numpy z-buffer rasteriser, no GL. Views iso/top/front/side at 1024 px, Lambert shading + depth-edge outline. Gallery tile: iso + top at 320 px.
@@ -228,7 +229,7 @@ Run from the installed 1.0.0 plugin, outside the repo, after `/forge setup` (U10
 1. The fast suite passes from a fresh clone after `setup_env.py`; `claude plugin validate ./plugin` passes.
 2. Finalists with one body, no joins and ≤ 2 surfaces: ≤ 30 % at alienness 1 (0.3 baseline: 6/10 and 10/10).
 3. Median `body_top_share` of delivered designs ≤ 0.35 at alienness ≥ 0.5; ≥ 4 different layouts among the 12 delivered designs at alienness ≥ 0.5.
-4. Exact panel count when `panel_count_exact` is set, ±10 % otherwise; `panels.csv` areas sum to the wetted area on every delivery.
+4. Exact panel count when `panel_count_exact` is set, ±10 % otherwise; the rows of `panels.csv` give the wetted area of every faceted body on every delivery as the sum of `count` × `area_m2` (`count` is 2 for a mirrored pod, 1 otherwise; the plain sum of the area column leaves out the second instance).
 5. At alienness 1 no delivered design has `conventional` as its nearest reference.
 6. Every delivered design passes the passable bar at tier 2, or the run names the blocking controls.
 7. Passable rate ≥ half of the 0.3 measurement (321 of 5,004 on the 80 m/s stand-in).

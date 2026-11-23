@@ -114,6 +114,18 @@ def test_panels_csv_has_one_row_per_sheet_and_the_areas_sum_to_the_wetted_area(
             assert total == pytest.approx(q.surface_area_m2(b.facets), rel=1e-5)
 
 
+def test_count_times_area_over_the_rows_is_the_wetted_area_of_every_faceted_body(
+    faceted: list[Design],
+) -> None:
+    pods = 0
+    for d in faceted:
+        rows = design_panels(d)
+        wetted = sum((2 if b.mirrored else 1) * q.surface_area_m2(b.facets) for b in d.bodies)
+        assert sum(p.count * p.area_m2 for p in rows) == pytest.approx(wetted, rel=1e-9)
+        pods += any(b.mirrored for b in d.bodies)
+    assert pods > 0, "the sample must include a mirrored pod, where the plain sum falls short"
+
+
 def test_each_panel_edge_has_a_neighbour_and_a_bevel_angle(faceted: list[Design]) -> None:
     for p in design_panels(faceted[0]):
         n = len(p.corners_m)
