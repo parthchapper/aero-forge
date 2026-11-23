@@ -11,7 +11,7 @@ from aeroforge.facet_query import fit_scale
 from aeroforge.faceted_body import faceted_body, tail_radius_frac
 from aeroforge.facets import FacetError, axis_rise_m, facet_body
 from aeroforge.models import Body, Box, Family, Propulsor, Requirements, Section, Vec3
-from aeroforge.shapes import body_axis_z, body_radius_frac, inside_loft
+from aeroforge.shapes import axis_z_at_x, body_axis_z, body_radius_frac, inside_loft
 
 
 def _vec(a: np.ndarray) -> Vec3:
@@ -187,12 +187,22 @@ def size_centre_body(
     )
 
 
-def boxes_in_body(body: Body, req: Requirements, layout: str) -> tuple[Box, ...]:
-    """Boxes packed by layout around the centre of the body's constant-section middle."""
+def boxes_in_body(
+    body: Body, req: Requirements, layout: str, widest_x_frac: float | None = None
+) -> tuple[Box, ...]:
+    """Boxes packed by layout around the centre of the body's constant-section middle; on a
+    flat-panel body (widest_x_frac = the max_section_x_frac gene) around its widest station, on
+    the axis there."""
     sizes = box_sizes(req)
     _, offsets = arrange_boxes(sizes, layout)
-    mid_x = body.nose_m[0] + body.length_m * (body.nose_frac + (1 - body.tail_frac)) / 2
-    centre = np.array([mid_x, body.nose_m[1], body.nose_m[2]])
+    if body.facets is not None:
+        if widest_x_frac is None:
+            raise FacetError("a flat-panel body needs the widest station to place its boxes")
+        mid_x = body.nose_m[0] + body.length_m * widest_x_frac
+        centre = np.array([mid_x, body.nose_m[1], axis_z_at_x(body, mid_x)])
+    else:
+        mid_x = body.nose_m[0] + body.length_m * (body.nose_frac + (1 - body.tail_frac)) / 2
+        centre = np.array([mid_x, body.nose_m[1], body.nose_m[2]])
     return tuple(
         Box(
             name=name,
@@ -325,7 +335,10 @@ def host_end(body: Body, pusher: bool) -> tuple[np.ndarray, float]:
         radius = float(body_radius_frac(body, np.array([1.0]))[0]) * min(
             body.half_width_m, body.half_height_m
         )
-    rise = float(body_axis_z(body, np.array([1.0]))[0]) - body.nose_m[2]
+    if body.facets is not None:
+        rise = axis_z_at_x(body, body.nose_m[0] + body.length_m) - body.nose_m[2]
+    else:
+        rise = float(body_axis_z(body, np.array([1.0]))[0]) - body.nose_m[2]
     return nose + np.array([body.length_m, 0.0, rise]), radius
 
 

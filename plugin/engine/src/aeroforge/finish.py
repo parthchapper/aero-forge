@@ -93,7 +93,9 @@ def _props(
 def _boxes(ctx: Context, lay: Layout, fits: dict[int, tuple[float, Spar]]) -> tuple:
     """Internal boxes in the centre body or surface0's centre section."""
     if ctx.body is not None and not ctx.wing_boxes:
-        return boxes_in_body(ctx.body, ctx.req, ctx.fam.box_layout)
+        return boxes_in_body(
+            ctx.body, ctx.req, ctx.fam.box_layout, ctx.fam.shape.max_section_x_frac
+        )
     s0 = lay.planforms[0]
     boxes = boxes_in_wing(s0.sections[: s0.n_structural], ctx.fam, fits[0][0], ctx.req)
     if boxes is None:
