@@ -9,9 +9,11 @@ from aeroforge import facet_query as q
 from aeroforge import facets as f
 from aeroforge.areas import areas
 from aeroforge.brief import brief_requirements
+from aeroforge.constants import number
 from aeroforge.facet_ends import FacetError
-from aeroforge.genetable import gene_table, genome_length
+from aeroforge.genetable import family_of, gene_table, genome_length, unpack
 from aeroforge.genome import decode
+from aeroforge.layout import size_faceted_body
 from aeroforge.models import BodyShape
 from aeroforge.reference import encode
 from aeroforge.shapes import inside_body
@@ -251,3 +253,13 @@ def test_fit_scale_rejects_no_corners_and_non_finite_corners(corners: np.ndarray
     poly = f.facet_body(BodyShape(style="faceted"), LENGTH_M, AXES_M)
     with pytest.raises(FacetError):
         q.fit_scale(poly, corners)
+
+
+def test_a_faceted_body_longer_than_the_length_cap_is_refused() -> None:
+    req = brief_requirements("stub")
+    fam = family_of(unpack(_faceted_genome()))
+    short = req.model_copy(update={"ref_length_m": 0.01})
+    with pytest.raises(FacetError):
+        size_faceted_body(short, fam, floor_m=0.01, holds_boxes=True)
+    length, _ = size_faceted_body(req, fam, floor_m=req.ref_length_m * 0.5, holds_boxes=True)
+    assert length <= number("facet_length_max_ref_mult") * req.ref_length_m

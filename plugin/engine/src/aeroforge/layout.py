@@ -101,7 +101,7 @@ def _faceted_fit(
     return fit_scale(poly, corners) * (1.0 + number("body_wall_margin_frac"))
 
 
-def sizefaceted_body(
+def size_faceted_body(
     req: Requirements, fam: Family, floor_m: float, holds_boxes: bool
 ) -> tuple[float, tuple[float, float]]:
     """(length, half-width and half-height) [m] of a faceted body at least floor_m long, at the
@@ -123,14 +123,15 @@ def sizefaceted_body(
     in_axes = _section_axes(inline[1] / 2, inline[2] / 2, ratio)
     # lengthen until the boxes fit at all and the inline packing's fit reads at most the fineness
     # (B1); then the packing in use fits too, and the section widens to the fineness exactly
-    for _ in range(int(number("facet_length_growth_max"))):
+    cap_m = number("facet_length_max_ref_mult") * req.ref_length_m
+    while True:
+        if length > cap_m:
+            raise FacetError(f"the boxes need a faceted body longer than {cap_m:.2f} m")
         k_in = _faceted_fit(fam, req, "inline", length, in_axes)
         k_fit = _faceted_fit(fam, req, fam.box_layout, length, axes)
         if np.isfinite(k_fit) and fineness * 2 * max(in_axes) * k_in <= length:
             break
         length *= number("facet_length_growth")
-    else:
-        raise FacetError("the boxes do not fit a faceted body of any tried length")
     k = max(k_fit, length / (fineness * 2 * max(axes)))
     return length, (axes[0] * k, axes[1] * k)
 
@@ -153,7 +154,7 @@ def size_centre_body(
     nose_frac, tail_frac = fam.body_nose_frac, fam.body_tail_frac
     floor_m = max(length_frac * req.ref_length_m, min_length_m)
     if fam.shape.style == "faceted":
-        length, axes = sizefaceted_body(req, fam, floor_m, holds_boxes)
+        length, axes = size_faceted_body(req, fam, floor_m, holds_boxes)
         return faceted_body(fam, length, axes, "body0", fam.body_tail_upsweep_deg)
     if holds_boxes:
         env, _ = arrange_boxes(box_sizes(req), fam.box_layout)

@@ -46,7 +46,7 @@ facet_bulge_frac: {value: 0.1, unit: "-", source: "assumed sagitta / run length 
 facet_geom_tol_m: {value: 1.0e-9, unit: m, source: "SPEC §5 invariant 11 planarity and support-plane tolerance"}
 facet_box_length_frac: {value: 0.5, unit: "-", source: "assumed: half the box stack length / the shorter side of the widest station, at the first size trial"}
 facet_length_growth: {value: 1.2, unit: "-", source: "assumed factor lengthening a body whose box stack leaves the faceted body"}
-facet_length_growth_max: {value: 30, unit: count, source: "cap on box-fit lengthening steps"}
+facet_length_max_ref_mult: {value: 6.0, unit: "-", source: "cap on a faceted body's length / reference length when lengthening it to hold the boxes: 2000 random stub genomes reached 4.1 (p99.9 3.8); past it the genome is infeasible (FacetError)"}
 facet_max_sides: {value: 12, unit: count, source: "SPEC §4 body_section_sides range"}
 facet_max_stations: {value: 8, unit: count, source: "SPEC §4 body_stations range"}
 body_wall_margin_frac: {value: 0.06, unit: "-", source: "assumed wall + clearance around boxes / half-dimension"}
