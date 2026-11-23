@@ -164,7 +164,7 @@ CAD build succeeds for ≥ 98 % of random genomes; a failure raises a typed erro
 - Each check returns a normalised margin m (m ≥ 0 passes). Feasible = all m ≥ 0. Violation = Σ max(0, −m). The passable bar and `accept_other_failures_max(r)` (2 at r = 0, every check at r = 1) decide what verify accepts; passable is always required.
 - Tier 1 (search): `asb.AeroBuildup`, all points. Tier 2 (finalists): `asb.VortexLatticeMethod` with stability derivatives and trim.
 - Profile drag always comes from the buildup; tier 2 replaces lift, moments and induced drag only. L/D and power comparisons use the same tier for candidate and baseline.
-- (U2) A faceted body enters AeroBuildup as an equivalent section (same width, height and area); the extra drag of sharp chines is not modelled and the report says so.
+- (U2) A faceted body enters AeroBuildup as an equivalent section (same width, height and area); its friction area is the exact area of the flat faces (the equivalent sections alone undercount it by 2 to 20 %); the extra drag of sharp chines is not modelled and the report says so.
 - CLmax: from section clmax at local Reynolds number, 3-D factor in checks.yaml.
 - `mass`: structure (areal density × wetted area; exact for faceted bodies), spars, motor, ESC, prop, battery, avionics, servos, payload.
 - `derive` fixes MTOW, S and battery once per run by fixed-point closure on the baseline (≤ 10 iterations, else typed infeasible). Candidates do not resize; they pass or fail the `mass` check.

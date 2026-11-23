@@ -10,7 +10,7 @@ import numpy as np
 
 from aeroforge.airfoil import naca_outline
 from aeroforge.constants import number
-from aeroforge.facet_query import equivalent_exponent, slice_section
+from aeroforge.facet_query import equivalent_exponent, slice_section, surface_area_m2
 from aeroforge.models import Body, Design, Polyhedron, Requirements, Section, Surface
 from aeroforge.shapes import body_axis_z, body_radius_frac, body_stations
 from aeroforge.style import wing_surfaces
@@ -131,10 +131,27 @@ def wing(s: Surface, deflection_deg: float, vlm: bool) -> asb.Wing:
     return asb.Wing(name=s.name, xsecs=xsecs, symmetric=s.mirrored)
 
 
+class FacetedFuselage(asb.Fuselage):
+    """Equivalent fuselage of a flat-panel body whose skin-friction area is the exact area of its
+    faces: the equivalent sections keep width, height and area but their perimeters undercount the
+    polygon's by 2 to 20 %, and AeroBuildup takes friction from `area_wetted`."""
+
+    def __init__(self, *args: object, wetted_m2: float, **kwargs: object) -> None:
+        # AeroBuildup keys its fuselage defaults on the exact class, so a subclass gets them here
+        defaults = asb.AeroBuildup.default_analysis_specific_options[asb.Fuselage]
+        kwargs.setdefault("analysis_specific_options", {asb.AeroBuildup: dict(defaults)})
+        super().__init__(*args, **kwargs)  # type: ignore[arg-type]
+        self.wetted_m2 = wetted_m2
+
+    def area_wetted(self) -> float:
+        """Exact wetted area [m^2] of the flat faces."""
+        return self.wetted_m2
+
+
 def _faceted_fuselage(b: Body, y_sign: float, poly: Polyhedron) -> asb.Fuselage:
     """Equivalent fuselage of a flat-panel body (SPEC §8): each station keeps the polygon's width,
-    height and area (super-ellipse exponent from asb's own area formula). The extra drag of sharp
-    chines is not modelled."""
+    height and area (super-ellipse exponent from asb's own area formula) and the friction area is
+    the faces' own. The extra drag of sharp chines is not modelled."""
     xsecs = []
     for ti in body_stations(int(number("aero_body_stations"))):
         width, height, area, zc = slice_section(poly, ti * b.length_m)
@@ -146,7 +163,7 @@ def _faceted_fuselage(b: Body, y_sign: float, poly: Polyhedron) -> asb.Fuselage:
                 shape=equivalent_exponent(width, height, area),
             )
         )
-    return asb.Fuselage(name=b.name, xsecs=xsecs)
+    return FacetedFuselage(name=b.name, xsecs=xsecs, wetted_m2=surface_area_m2(poly))
 
 
 def _fuselage(b: Body, y_sign: float) -> asb.Fuselage:

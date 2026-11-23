@@ -3,13 +3,14 @@
 import json
 from pathlib import Path
 
+import aerosandbox as asb
 import numpy as np
 import pytest
 import trimesh
 
 import aeroforge.facet_hatch as fh
 import aeroforge.facet_query as q
-from aeroforge.airplane import fuselages
+from aeroforge.airplane import fuselages, wing
 from aeroforge.checks import evaluate
 from aeroforge.constants import number
 from aeroforge.facet_pieces import pieces
@@ -87,6 +88,44 @@ def test_the_equivalent_aero_section_has_the_polygons_area(faceted: list[Design]
                     assert xs.xsec_area() == pytest.approx(area, rel=AREA_REL_TOL)
                     checked += 1
     assert checked > FAST_DESIGNS
+
+
+def test_the_aero_friction_area_of_a_faceted_body_is_its_face_area(faceted: list[Design]) -> None:
+    checked = 0
+    for d in faceted:
+        bodies = [b for b in d.bodies for _ in range(2 if b.mirrored else 1)]
+        for body, fus in zip(bodies, fuselages(d), strict=True):
+            assert fus.area_wetted() == pytest.approx(q.surface_area_m2(body.facets), rel=1e-12)
+            checked += 1
+    assert checked > FAST_DESIGNS
+
+
+def test_the_exact_friction_area_raises_the_body_skin_drag_of_the_aerobuildup_run(
+    faceted: list[Design],
+) -> None:
+    op = asb.OperatingPoint(velocity=20.0, alpha=2.0)
+    more = 0
+    for d in faceted[:6]:
+        ref = [float(d.bodies[0].nose_m[0]) + 0.5 * d.bodies[0].length_m, 0.0, 0.0]
+        exact = asb.AeroBuildup(_airplane_of(d, ref), op).run()
+        plain_plane = _airplane_of(d, ref)
+        plain_plane.fuselages = [
+            asb.Fuselage(name=f.name, xsecs=f.xsecs) for f in plain_plane.fuselages
+        ]
+        plain = asb.AeroBuildup(plain_plane, op).run()
+        gain = float(np.ravel(exact["D_profile"])[0] - np.ravel(plain["D_profile"])[0])
+        assert gain >= 0.0
+        more += gain > 0.0
+    assert more > 0
+
+
+def _airplane_of(d: Design, ref: list[float]) -> asb.Airplane:
+    return asb.Airplane(
+        wings=[wing(s, 0.0, False) for s in d.surfaces],
+        fuselages=fuselages(d),
+        xyz_ref=ref,
+        s_ref=d.lifting_area_m2,
+    )
 
 
 def test_skin_mass_comes_from_the_exact_wetted_area(faceted: list[Design]) -> None:
