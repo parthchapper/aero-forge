@@ -46,6 +46,16 @@ def population(request: pytest.FixtureRequest) -> int:
     return int(request.param)
 
 
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """A slow test runs on the full population only: its smoke variant would need more genomes
+    than 50 (it is skipped, the full variant is not)."""
+    skip = pytest.mark.skip(reason="slow tests run on the full population")
+    for item in items:
+        params = getattr(getattr(item, "callspec", None), "params", {})
+        if params.get("population") == N_SMOKE_GENOMES and item.get_closest_marker("slow"):
+            item.add_marker(skip)
+
+
 @pytest.fixture(scope="session")
 def genomes(population: int) -> np.ndarray:
     return random_genomes(np.random.default_rng(PROPERTY_SEED), population)
