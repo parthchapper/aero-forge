@@ -138,6 +138,29 @@ def test_report_has_every_check_row_and_the_fidelity_statement(tmp_path: Path) -
     assert {c.id for c in report.checks} <= set(rows) and "## Fidelity" in text
 
 
+def test_report_lists_the_decoder_notes_such_as_a_dropped_tail_upsweep(tmp_path: Path) -> None:
+    w = _winner(0)
+    note = "tail upsweep dropped: a root chord sits on the rising tail cone"
+    design = Design.model_validate(w["design"]).model_copy(update={"notes": (note,)})
+    for name in ("brief.yaml", "requirements.json"):
+        (tmp_path / name).write_bytes((WINNERS / name).read_bytes())
+    req = Requirements.model_validate_json((WINNERS / "requirements.json").read_text())
+    novelty = design_novelty(np.array(w["genome"]), tmp_path, tmp_path / "none.jsonl")
+    text = report_md(
+        load_brief(WINNERS / "brief.yaml"),
+        req,
+        design,
+        CheckReport.model_validate(w["report"]),
+        novelty,
+        w["seed"],
+        0.5,
+        "f00",
+    )
+    assert "## Decoder notes" in text and f"- {note}" in text
+    plain = _report_text(tmp_path)[0]
+    assert "## Decoder notes" in plain  # always present: "- none" or the notes
+
+
 def test_report_shows_the_search_seed_and_randomness(tmp_path: Path) -> None:
     text, _ = _report_text(tmp_path)
     assert f"Search seed {_winner(0)['seed']}, randomness 0.5." in text

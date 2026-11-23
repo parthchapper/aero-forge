@@ -94,6 +94,11 @@ def _faceted_fidelity(design: Design) -> list[str]:
     return []
 
 
+def decoder_note_rows(design: Design) -> list[str]:
+    """What the decoder changed on the way from the genome (dropped controls, moved roots, ...)."""
+    return [f"- {n}" for n in design.notes] or ["- none"]
+
+
 def report_md(
     b: Brief,
     req: Requirements,
@@ -124,6 +129,9 @@ def report_md(
         f" ({report.balance}); fin scale {report.fin_scale:.3f}; incidence"
         f" {report.incidence_deg:+.2f} deg ({report.incidence_rule}).",
         *[f"- note: {n}" for n in report.notes],
+        "",
+        "## Decoder notes (controls the decoder dropped or moved)",
+        *decoder_note_rows(design),
         "",
         "## Shadow areas",
         *area_rows(areas(design)),
