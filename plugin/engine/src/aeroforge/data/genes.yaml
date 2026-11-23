@@ -74,8 +74,8 @@ genes:
   - {name: prop_direction, kind: choice, choices: ["tractor", "pusher"], meaning: "propeller at host nose or tail"}
   - {name: prop_gap_frac, kind: float, lo: 0, hi: 1, meaning: "hub gap from host end between prop_gap_min/max"}
   - {name: prop_z_frac, kind: float, lo: -0.8, hi: 0.8, meaning: "hub height offset / host end radius"}
-  - {name: body_nose_frac, kind: float, lo: 0.10, hi: 0.35, ref_default: 0.22, meaning: "centre body nose cone length / body length (was a constant)"}
-  - {name: body_tail_frac, kind: float, lo: 0.15, hi: 0.45, ref_default: 0.40, meaning: "centre body tail cone length / body length (was a constant)"}
+  - {name: body_nose_frac, kind: float, lo: 0.10, hi: 0.35, ref_default: 0.22, meaning: "centre body nose cone length / body length (was a constant); smooth bodies only, inert when faceted (max_section_x_frac)"}
+  - {name: body_tail_frac, kind: float, lo: 0.15, hi: 0.45, ref_default: 0.40, meaning: "centre body tail cone length / body length (was a constant); smooth bodies only, inert when faceted (1 - max_section_x_frac)"}
   - {name: body_width_ratio, kind: float, lo: 0.6, hi: 2.0, ref_default: 1.0, meaning: "body width / height as a multiple of the box-fit ratio; the body grows, never shrinks, so every box still fits (1 = today)"}
   - {name: body_tail_upsweep_deg, kind: float, lo: 0, hi: 15, ref_default: 0.0, meaning: "tail cone axis bends upward by this angle"}
   - {name: box_layout, kind: choice, choices: ["inline", "side_by_side", "stacked", "wing_root"], meaning: "how battery, payload and avionics boxes are packed; wing_root tries surface0 first"}

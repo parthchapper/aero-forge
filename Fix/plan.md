@@ -569,8 +569,8 @@ The report lists the source of every value.
 | 47 | `body_length_frac` | G | 0.3–1.0 | Minimum body length relative to the reference length. | Lower bound. The box fit may lengthen it. |
 | 48 | `fam_body_fineness` | G | 4–10 | Length ÷ thickness: 4 = stubby, 10 = slender. | Sets body diameter from length (upgrade decision B in U0 decides which diameter). |
 | 49 | `body_width_ratio` | G | 0.6–2.0 | Above 1 = wide, flat lifting body. Below 1 = tall and narrow. | Multiplies the width ÷ height set by the boxes. The body only grows, so boxes always fit. |
-| 50 | `body_nose_frac` | G | 0.10–0.35 | Nose length as a share of the body. | Nose segment length. |
-| 51 | `body_tail_frac` | G | 0.15–0.45 | Tail length as a share of the body. | Tail segment length. |
+| 50 | `body_nose_frac` | G | 0.10–0.35 | Nose length as a share of the body. | Nose segment length. **Smooth bodies only: inert when `body_style` is faceted** (the widest station, `max_section_x_frac`, sets the nose and tail lengths; U1 audit F11). |
+| 51 | `body_tail_frac` | G | 0.15–0.45 | Tail length as a share of the body. | Tail segment length. **Smooth bodies only: inert when `body_style` is faceted** (the widest station, `max_section_x_frac`, sets the nose and tail lengths; U1 audit F11). |
 | 52 | `body_tail_upsweep_deg` | G | 0–15° | Tail bends upward (clears the ground, raises a pusher prop). | Tail axis rises at this angle. |
 | 53 | `box_layout` | G | inline / side_by_side / stacked / wing_root | How payload, battery and avionics are packed: a row (long body), side by side (wide), stacked (tall), or in the wing roots (tiny body). | Layout packing rule. `wing_root` tries the wing first. |
 | 54 | `edge_alignment` | G | off / soft / strict, U3 | Strict = all edges seen from above line up on a few shared angles (the classic angular look). Soft = encouraged. | Strict snaps edge angles in the decoder. Soft adds a style feature. |
