@@ -7,6 +7,7 @@ from itertools import pairwise
 import numpy as np
 
 from aeroforge.constants import number
+from aeroforge.facet_ends import FacetError
 from aeroforge.models import Polyhedron
 
 
@@ -50,7 +51,10 @@ def inside_faceted(poly: Polyhedron, points: np.ndarray, tol_m: float = 1e-9) ->
 def fit_scale(poly: Polyhedron, corners: np.ndarray) -> float:
     """Smallest even scale k of the cross-section (y and z, x fixed) that holds every corner (body
     frame): inside a cell, a corner needs k >= (n_yz . p_yz) / (d - n_x x) for each face with
-    n_yz . p_yz > 0. inf when a corner lies outside every cell's x range or on a closing apex."""
+    n_yz . p_yz > 0. inf when a corner lies outside every cell's x range or on a closing apex.
+    FacetError for no corners or a non-finite corner (a NaN would read as "does not fit")."""
+    if corners.size == 0 or not np.all(np.isfinite(corners)):
+        raise FacetError("fit_scale needs at least one corner and every coordinate finite")
     tol = number("facet_geom_tol_m")
     best = np.full(len(corners), np.inf)
     for lo, hi, normals, offsets in _cells(poly):

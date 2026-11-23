@@ -9,6 +9,7 @@ from aeroforge import facet_query as q
 from aeroforge import facets as f
 from aeroforge.areas import areas
 from aeroforge.brief import brief_requirements
+from aeroforge.facet_ends import FacetError
 from aeroforge.genetable import gene_table, genome_length
 from aeroforge.genome import decode
 from aeroforge.models import BodyShape
@@ -241,3 +242,12 @@ def test_the_cell_cache_is_bounded_and_samples_are_not_cached(shapes: list[BodyS
         q._cells(f.body_polyhedron(f.effective_plan(sh), sh, LENGTH_M + 1e-3 * i, AXES_M))
     assert q._cells.cache_info().currsize <= q.CELLS_CACHE_SIZE
     assert not hasattr(q.sample_points, "cache_info")
+
+
+@pytest.mark.parametrize(
+    "corners", [np.zeros((0, 3)), np.array([[np.nan, 0.0, 0.0]]), np.array([[0.5, np.inf, 0.0]])]
+)
+def test_fit_scale_rejects_no_corners_and_non_finite_corners(corners: np.ndarray) -> None:
+    poly = f.facet_body(BodyShape(style="faceted"), LENGTH_M, AXES_M)
+    with pytest.raises(FacetError):
+        q.fit_scale(poly, corners)
