@@ -100,5 +100,5 @@ genes:
   - {name: nose_style, kind: choice, choices: ["point", "chisel", "blunt"], meaning: "faceted nose closes to a point, a horizontal edge or a flat cap"}
   - {name: tail_style, kind: choice, choices: ["point", "knife", "flat"], meaning: "faceted tail closes to a point, a vertical edge or a flat cap"}
   - {name: tail_flatten, kind: float, lo: 0, hi: 1, ref_default: 0.0, meaning: "last faceted station squashed in height by this share: a shape break (below facet_break_flatten_min none)"}
-  - {name: tail_end_size_frac, kind: float, lo: 0, hi: 0.5, ref_default: 0.18, meaning: "tail-end size / max section (was the constant body_tail_radius_frac); floored at facet_smooth_tail_min_frac"}
+  - {name: tail_end_size_frac, kind: float, lo: 0, hi: 0.5, ref_default: 0.18, meaning: "tail-end size / max section (was the constant body_tail_radius_frac); floored at facet_tail_end_min_frac"}
   - {name: max_section_x_frac, kind: float, lo: 0.2, hi: 0.7, ref_default: 0.41, meaning: "faceted body: length fraction of the widest station (smooth bodies: unused)"}

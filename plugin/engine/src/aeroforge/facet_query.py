@@ -39,8 +39,10 @@ def _cells(poly: Polyhedron) -> tuple[tuple[float, float, np.ndarray, np.ndarray
     )
 
 
-def inside_faceted(poly: Polyhedron, points: np.ndarray, tol_m: float = 1e-9) -> np.ndarray:
-    """Mask of points (body frame) inside the solid: inside every flat face of some convex cell."""
+def inside_faceted(poly: Polyhedron, points: np.ndarray, tol_m: float | None = None) -> np.ndarray:
+    """Mask of points (body frame) inside the solid: inside every flat face of some convex cell,
+    within tol_m [m] (default facet_geom_tol_m)."""
+    tol_m = number("facet_geom_tol_m") if tol_m is None else tol_m
     out = np.zeros(len(points), dtype=bool)
     for lo, hi, normals, offsets in _cells(poly):
         in_x = (points[:, 0] >= lo - tol_m) & (points[:, 0] <= hi + tol_m)

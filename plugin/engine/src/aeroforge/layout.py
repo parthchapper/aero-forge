@@ -7,6 +7,7 @@ import numpy as np
 from aeroforge.airfoil import naca_outline
 from aeroforge.constants import constant, number, numbers
 from aeroforge.facet_query import fit_scale
+from aeroforge.faceted_body import faceted_body, tail_radius_frac
 from aeroforge.facets import FacetError, axis_rise_m, facet_body
 from aeroforge.models import Body, Box, Family, Propulsor, Requirements, Section, Vec3
 from aeroforge.shapes import body_axis_z, body_radius_frac, inside_loft
@@ -74,11 +75,6 @@ def _section_axes(half_w: float, half_h: float, ratio: float) -> tuple[float, fl
     return (aspect * half_h, half_h) if ratio > 1.0 else (half_w, half_w / aspect)
 
 
-def _tail_radius_frac(fam: Family) -> float:
-    """Tail-end radius / max radius of a smooth body: the gene, floored off a degenerate ring."""
-    return max(fam.shape.tail_end_size_frac, number("facet_smooth_tail_min_frac"))
-
-
 def _box_corners(req: Requirements, layout: str, x_centre_m: float) -> np.ndarray:
     """All corners of the packed boxes with the packing centred at x_centre_m on the axis [m]."""
     sizes = box_sizes(req)
@@ -105,7 +101,7 @@ def _faceted_fit(
     return fit_scale(poly, corners) * (1.0 + number("body_wall_margin_frac"))
 
 
-def size_faceted_body(
+def sizefaceted_body(
     req: Requirements, fam: Family, floor_m: float, holds_boxes: bool
 ) -> tuple[float, tuple[float, float]]:
     """(length, half-width and half-height) [m] of a faceted body at least floor_m long, at the
@@ -139,28 +135,6 @@ def size_faceted_body(
     return length, (axes[0] * k, axes[1] * k)
 
 
-def _faceted_body(
-    fam: Family, length_m: float, axes_m: tuple[float, float], name: str, upsweep_deg: float = 0.0
-) -> Body:
-    """Body of flat panels; its smooth-law fields give the same extent and envelope (widest
-    station at nose_frac, boat-tail after it) to consumers that are not facet-aware yet."""
-    m = fam.shape.max_section_x_frac
-    return Body(
-        name=name,
-        mirrored=False,
-        nose_m=(0.0, 0.0, 0.0),
-        length_m=length_m,
-        half_width_m=axes_m[0],
-        half_height_m=axes_m[1],
-        section_exp=fam.body_section_exp,
-        nose_frac=m,
-        tail_frac=1.0 - m,
-        tail_radius_frac=_tail_radius_frac(fam),
-        tail_upsweep_deg=upsweep_deg,
-        facets=facet_body(fam.shape, length_m, axes_m, upsweep_deg),
-    )
-
-
 def size_centre_body(
     req: Requirements,
     fam: Family,
@@ -179,8 +153,8 @@ def size_centre_body(
     nose_frac, tail_frac = fam.body_nose_frac, fam.body_tail_frac
     floor_m = max(length_frac * req.ref_length_m, min_length_m)
     if fam.shape.style == "faceted":
-        length, axes = size_faceted_body(req, fam, floor_m, holds_boxes)
-        return _faceted_body(fam, length, axes, "body0", fam.body_tail_upsweep_deg)
+        length, axes = sizefaceted_body(req, fam, floor_m, holds_boxes)
+        return faceted_body(fam, length, axes, "body0", fam.body_tail_upsweep_deg)
     if holds_boxes:
         env, _ = arrange_boxes(box_sizes(req), fam.box_layout)
         fit = 2 ** (1 / fam.body_section_exp) * (1 + number("body_wall_margin_frac"))
@@ -206,7 +180,7 @@ def size_centre_body(
         section_exp=fam.body_section_exp,
         nose_frac=nose_frac,
         tail_frac=tail_frac,
-        tail_radius_frac=_tail_radius_frac(fam),
+        tail_radius_frac=tail_radius_frac(fam),
         tail_upsweep_deg=fam.body_tail_upsweep_deg,
     )
 
@@ -319,7 +293,7 @@ def place_pod(
     radius = length / (2 * fam.body_fineness)
     nose = (float(le[0] - genes["pod_x_frac"] * length), float(le[1]), float(le[2]))
     if fam.shape.style == "faceted":
-        body = _faceted_body(fam, length, (radius, radius), "pod")
+        body = faceted_body(fam, length, (radius, radius), "pod")
         return body.model_copy(update={"mirrored": True, "nose_m": nose}), s
     pod = Body(
         name="pod",
@@ -331,7 +305,7 @@ def place_pod(
         section_exp=fam.body_section_exp,
         nose_frac=number("body_nose_frac"),
         tail_frac=number("body_tail_frac"),
-        tail_radius_frac=_tail_radius_frac(fam),
+        tail_radius_frac=tail_radius_frac(fam),
     )
     return pod, s
 

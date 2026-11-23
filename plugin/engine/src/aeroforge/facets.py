@@ -17,8 +17,6 @@ from aeroforge.constants import number
 from aeroforge.facet_ends import FacetError, apex_points, end_faces, end_panel_count
 from aeroforge.models import BodyShape, Polyhedron
 
-AXIS_X = np.array([1.0, 0.0, 0.0])
-MAX_BREAKS = 2
 NOSES = ("point", "chisel", "blunt")
 TAILS = ("point", "knife", "flat")
 

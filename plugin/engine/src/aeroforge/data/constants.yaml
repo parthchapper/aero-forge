@@ -49,7 +49,6 @@ facet_length_growth: {value: 1.2, unit: "-", source: "assumed factor lengthening
 facet_length_growth_max: {value: 30, unit: count, source: "cap on box-fit lengthening steps"}
 facet_max_sides: {value: 12, unit: count, source: "SPEC §4 body_section_sides range"}
 facet_max_stations: {value: 8, unit: count, source: "SPEC §4 body_stations range"}
-facet_smooth_tail_min_frac: {value: 0.05, unit: "-", source: "assumed floor of a smooth body's tail-end radius / max radius (0.3 constant was 0.18)"}
 body_wall_margin_frac: {value: 0.06, unit: "-", source: "assumed wall + clearance around boxes / half-dimension"}
 box_gap_m: {value: 0.01, unit: m, source: "assumed gap between internal boxes"}
 battery_energy_density_wh_per_m3: {value: 300000, unit: Wh/m3, source: "Li-ion pack ~300 Wh/L"}
