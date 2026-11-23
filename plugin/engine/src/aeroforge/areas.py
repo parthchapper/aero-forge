@@ -14,7 +14,7 @@ from math import hypot
 import numpy as np
 
 from aeroforge.constants import number
-from aeroforge.facet_query import face_projection
+from aeroforge.facet_query import cell_projection
 from aeroforge.models import Body, Design
 from aeroforge.shapes import body_axis_z, body_radius_frac, body_stations, section_normal
 from aeroforge.style import panels
@@ -107,9 +107,9 @@ def _body_centres(d: Design) -> list[tuple[Body, float]]:
 
 
 def _faceted_shadow(b: Body, y0: float, s: np.ndarray, columns: tuple[int, int]) -> Intervals:
-    """Intervals of a faceted body: its flat faces projected onto two body-frame coordinates (the
-    union of the face shadows is the solid's shadow), placed at the body's nose and y0."""
-    polys = face_projection(b.facets, columns) + np.array([y0, b.nose_m[columns[1]]])
+    """Intervals of a faceted body: its convex cells projected onto two body-frame coordinates (the
+    union of the cell shadows is the solid's shadow), placed at the body's nose and y0."""
+    polys = cell_projection(b.facets, columns) + np.array([y0, b.nose_m[columns[1]]])
     return _polygon_intervals(polys, s)
 
 

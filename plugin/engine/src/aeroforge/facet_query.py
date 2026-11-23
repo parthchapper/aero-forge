@@ -2,6 +2,7 @@
 (SPEC §5 invariants 5, 11, 12). Pure numpy, body frame, metres."""
 
 from functools import lru_cache
+from itertools import pairwise
 
 import numpy as np
 
@@ -140,13 +141,37 @@ def sample_points(poly: Polyhedron, spacing_m: float) -> np.ndarray:
     return out
 
 
-def face_projection(poly: Polyhedron, columns: tuple[int, int]) -> np.ndarray:
-    """Every face projected onto two body-frame coordinates, shape (F, max corners, 2); shorter
-    faces repeat their last corner."""
-    v = np.asarray(poly.vertices_m)[:, list(columns)]
-    width = max(len(f) for f in poly.faces)
-    out = np.empty((len(poly.faces), width, 2))
-    for i, face in enumerate(poly.faces):
-        p = v[list(face)]
-        out[i] = np.vstack([p, np.repeat(p[-1:], width - len(p), axis=0)])
-    return out
+def _hull_2d(pts: np.ndarray) -> np.ndarray:
+    """Counter-clockwise convex hull of 2D points (monotone chain, collinear points dropped). Plain
+    loops: for a few dozen points this is several times faster than a Qhull call."""
+    order = np.lexsort((pts[:, 1], pts[:, 0]))
+    p = [tuple(row) for row in pts[order]]
+
+    def half(seq: list[tuple[float, float]]) -> list[tuple[float, float]]:
+        out: list[tuple[float, float]] = []
+        for c in seq:
+            while len(out) >= 2 and (
+                (out[-1][0] - out[-2][0]) * (c[1] - out[-2][1])
+                - (out[-1][1] - out[-2][1]) * (c[0] - out[-2][0])
+                <= 0.0
+            ):
+                out.pop()
+            out.append(c)
+        return out[:-1]
+
+    return np.array(half(p) + half(p[::-1]))
+
+
+def cell_projection(poly: Polyhedron, columns: tuple[int, int]) -> np.ndarray:
+    """Every convex cell between consecutive x layers projected onto two body-frame coordinates:
+    the hull of its vertices, shape (cells, max corners, 2), counter-clockwise; shorter hulls
+    repeat their last corner. The union of the cell shadows is the solid's shadow, with a polygon
+    per station gap instead of one per face."""
+    v = np.asarray(poly.vertices_m)
+    layers = np.unique(v[:, 0])
+    hulls = [
+        _hull_2d(v[(v[:, 0] >= lo) & (v[:, 0] <= hi)][:, list(columns)])
+        for lo, hi in pairwise(layers)
+    ]
+    width = max(len(h) for h in hulls)
+    return np.array([np.vstack([h, np.repeat(h[-1:], width - len(h), axis=0)]) for h in hulls])
