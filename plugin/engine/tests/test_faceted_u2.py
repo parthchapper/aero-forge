@@ -238,24 +238,29 @@ def test_internals_are_contained_on_the_winner_genomes_decoded_as_faceted(i: int
     assert containment_failures(d, items) == []
 
 
-def test_a_hatch_on_a_flat_panel_body_lies_inside_one_roof_panel(faceted: list[Design]) -> None:
-    checked = 0
+def test_a_contained_hatch_lies_on_the_roof_and_mostly_on_one_panel(faceted: list[Design]) -> None:
+    """User rule (U2 H3): a hatch is usable (>= a quarter of its bay), centred, and on the roof. It
+    is a single panel's cut-out in about two thirds of the cases (66 % of 237 on 80 genomes); the
+    rest straddle a ridge, which the rule does not forbid (CHANGELOG, U2 fixes)."""
+    one = total = 0
     for d in faceted:
-        body = next(b for b in d.bodies if b.name == d.boxes[0].host) if d.boxes else None
-        if body is None or body.facets is None:
-            continue
         items = hardpoints(d, "belly")
-        hatch = next(i for i in items if i.item == "hatch")
-        if hatch.name in containment_failures(d, items):
-            continue  # a misfit hatch keeps the whole bay footprint and is reported, not cut
-        c, size = np.asarray(hatch.centre_m) - np.asarray(body.nose_m), hatch.size_m
-        corners = np.array(
-            [[c[0] + a * size[0] / 2, c[1] + b * size[1] / 2] for a in (-1, 1) for b in (-1, 1)]
-        )
-        panels = [outline for outline, _ in fh.roof_panels(body.facets)]
-        assert any(fh.in_convex(p, corners).all() for p in panels)
-        checked += 1
-    assert checked > 0
+        failed = set(containment_failures(d, items))
+        for hatch in (i for i in items if i.item == "hatch" and i.name not in failed):
+            box = next(b for b in d.boxes if f"hatch_{b.name}" == hatch.name)
+            body = next((b for b in d.bodies if b.name == box.host and b.facets), None)
+            if body is None:
+                continue
+            c = np.asarray(hatch.centre_m[:2]) - np.asarray(body.nose_m[:2])
+            h = np.asarray(hatch.size_m[:2]) / 2
+            corners = np.array([c + h * np.array([a, b]) for a in (-1, 1) for b in (-1, 1)])
+            panels = [outline for outline, _ in fh.roof_panels(body.facets)]
+            assert all(
+                any(fh.in_convex(p, corners[k : k + 1]).all() for p in panels) for k in range(4)
+            )
+            one += any(fh.in_convex(p, corners).all() for p in panels)
+            total += 1
+    assert total > 0 and one >= 0.5 * total
 
 
 @pytest.mark.slow
