@@ -40,8 +40,11 @@ def section_outline(section: Section, surface: Surface, n_per_side: int) -> np.n
 
 
 def surface_points(surface: Surface, n_per_side: int, spacing_m: float) -> np.ndarray:
-    """Outline points of the right/centre instance, blended between sections every spacing_m [m]."""
+    """Outline points of the right/centre instance, blended between sections every spacing_m [m],
+    plus the trailing edge (both ends of the outline) every spacing_m / sample_te_refine: on a
+    swept panel the spanwise step is a longer x gap there, where a pusher hub slides against it."""
     outlines = [section_outline(s, surface, n_per_side) for s in surface.sections]
+    refine = int(number("sample_te_refine"))
     blocks = []
     for a, b, sa, sb in zip(
         outlines[:-1], outlines[1:], surface.sections[:-1], surface.sections[1:], strict=True
@@ -49,6 +52,8 @@ def surface_points(surface: Surface, n_per_side: int, spacing_m: float) -> np.nd
         steps = max(1, int(np.ceil(np.linalg.norm(np.subtract(sb.le_m, sa.le_m)) / spacing_m)))
         w = np.linspace(0.0, 1.0, steps, endpoint=False)[:, None, None]
         blocks.append(((1 - w) * a + w * b).reshape(-1, 3))
+        edge = np.linspace(0.0, 1.0, steps * refine, endpoint=False)[:, None, None]
+        blocks.append(((1 - edge) * a[[0, -1]] + edge * b[[0, -1]]).reshape(-1, 3))
     return np.vstack([*blocks, outlines[-1]])
 
 
