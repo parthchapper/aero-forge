@@ -98,35 +98,19 @@ def _mount_radius(design: Design, p: Propulsor, base: Internal, full_m: float) -
     return _outermost(fits, full_m)
 
 
-def _mount_inset(design: Design, p: Propulsor, full_m: float) -> float:
-    """Distance the firewall sits inside the host end: the standard inset, and on a flat-panel
-    host that closes to a point or an edge, far enough forward for a plate of at least
-    mount_plate_min_frac of the full radius (the pointed tail is cut by the plate, not the other
-    way round). Without such a place, the one with the widest plate."""
-    inset = number("mount_plate_inset_m")
-    host = next((b for b in design.bodies if b.name == p.host), None)
-    if host is None or host.facets is None:
-        return inset
-    steps = int(number("mount_slide_steps"))
-    reach = number("mount_slide_body_frac") * host.length_m
-    best_inset, best_radius = inset, -1.0
-    for k in range(steps + 1):
-        trial = inset + reach * k / steps
-        radius = _mount_radius(design, p, _mount_base(design, p, trial), full_m)
-        if radius >= number("mount_plate_min_frac") * full_m:
-            return trial
-        if radius > best_radius:
-            best_inset, best_radius = trial, radius
-    return best_inset
-
-
 def _mount(design: Design, p: Propulsor) -> Internal:
     """Firewall disc inside the host end with the motor bolt circle; its radius is the largest (up
-    to mount_plate_radius_frac x D) whose rim stays in the host."""
+    to mount_plate_radius_frac x D) whose rim stays in the host. On a flat-panel host a plate that
+    cannot reach mount_plate_min_frac of the full radius keeps the full radius, so containment
+    reports it: layout.firewall_attach already placed the motor inside a slim end, and a mount that
+    still does not fit is a misfit, not a smaller plate. (Smooth hosts keep the 0.3 rule: any
+    fitting plate; a centre outside the host keeps the full plate.)"""
     full = number("mount_plate_radius_frac") * p.diameter_m
-    base = _mount_base(design, p, _mount_inset(design, p, full))
-    # a centre outside the host keeps the full plate so containment reports it (and CAD works)
-    radius = _mount_radius(design, p, base, full) or full
+    base = _mount_base(design, p, number("mount_plate_inset_m"))
+    fitted = _mount_radius(design, p, base, full)
+    host = next((b for b in design.bodies if b.name == p.host), None)
+    small = fitted < number("mount_plate_min_frac") * full
+    radius = full if small and host is not None and host.facets is not None else (fitted or full)
     centre = np.asarray(base.centre_m)
     _, u, v = (np.asarray(a) for a in base.axes)
     n = int(number("mount_bolt_count"))
@@ -149,7 +133,10 @@ def _host_height(design: Design, host: str) -> float:
 def _hatch_footprint_m(design: Design, box: Box, top_m: float) -> tuple[float, float, float, float]:
     """Hatch centre x, y and length, width [m]: the bay footprint, on a flat-panel body cut back
     to the edges of the part of the roof panel that covers most of it and lies above the hatch
-    (its top face at top_m + half a hatch thickness; the planes are exact, so no sag clearance)."""
+    (its top face at top_m + half a hatch thickness; the planes are exact, so no sag clearance).
+    A hatch smaller than hatch_panel_min_frac of the bay footprint, or whose centre lies more than
+    hatch_centre_tol_frac of the footprint off the bay's, is not a usable hatch: the whole
+    footprint is returned then, so containment reports the misfit instead of a token hatch."""
     body = next((b for b in design.bodies if b.name == box.host), None)
     x, y = box.centre_m[0], box.centre_m[1]
     length, width = box.size_m[0], box.size_m[1]
@@ -160,6 +147,11 @@ def _hatch_footprint_m(design: Design, box: Box, top_m: float) -> tuple[float, f
     (cx, cy), (hx, hy) = hatch_rect_xy(
         body.facets, (x - nose[0], y - nose[1]), (length / 2, width / 2), z_m
     )
+    usable = 4.0 * hx * hy >= number("hatch_panel_min_frac") * length * width
+    tol = number("hatch_centre_tol_frac")
+    centred = abs(cx - (x - nose[0])) <= tol * length and abs(cy - (y - nose[1])) <= tol * width
+    if not (usable and centred):
+        return x, y, length, width
     return cx + float(nose[0]), cy + float(nose[1]), 2.0 * hx, 2.0 * hy
 
 

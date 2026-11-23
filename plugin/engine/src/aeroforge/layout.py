@@ -6,7 +6,7 @@ import numpy as np
 
 from aeroforge.airfoil import naca_outline
 from aeroforge.constants import constant, number, numbers
-from aeroforge.facet_metrics import end_radius_m
+from aeroforge.facet_metrics import end_radius_m, inradius_on_axis_m
 from aeroforge.facet_query import fit_scale
 from aeroforge.faceted_body import faceted_body, tail_radius_frac
 from aeroforge.facets import FacetError, axis_rise_m, facet_body
@@ -342,6 +342,41 @@ def host_end(body: Body, pusher: bool) -> tuple[np.ndarray, float]:
     return nose + np.array([body.length_m, 0.0, rise]), radius
 
 
+def firewall_attach(
+    body: Body, end_attach: np.ndarray, diameter_m: float, pusher: bool
+) -> np.ndarray:
+    """Where a motor attaches to a flat-panel host (the tail end for a pusher, the nose for a
+    tractor): the end itself when a firewall plate of at least mount_plate_min_frac of its full
+    radius fits there, else the nearest place inside (within mount_slide_body_frac of the body
+    length) where it does, else the place with the widest plate. The shaft then runs from there
+    to the hub. The plate is the disc of hardpoints._mount: its centre mount_plate_inset_m + half
+    its thickness inside the attach point."""
+    if body.facets is None:
+        return end_attach
+    target = number("mount_plate_min_frac") * number("mount_plate_radius_frac") * diameter_m
+    back = number("mount_plate_inset_m") + number("mount_plate_thickness_m") / 2.0
+    length = body.length_m
+    steps = int(number("mount_slide_steps"))
+    reach = number("mount_slide_body_frac") * length
+    sign = -1.0 if pusher else 1.0  # plate centre moves forward from a tail end, aft from a nose
+    first = length - back if pusher else back
+    best_x, best_r = first, -1.0
+    for k in range(steps + 1):
+        x = first + sign * reach * k / steps  # plate centre, body frame
+        r = inradius_on_axis_m(body.facets, x)
+        if r >= target:
+            return end_attach if k == 0 else _attach_at(body, x + (back if pusher else -back))
+        if r > best_r:
+            best_x, best_r = x, r
+    return _attach_at(body, best_x + (back if pusher else -back))
+
+
+def _attach_at(body: Body, x_body_m: float) -> np.ndarray:
+    """Point on the body's axis at x_body_m (body frame) in world coordinates."""
+    x = body.nose_m[0] + x_body_m
+    return np.array([x, body.nose_m[1], axis_z_at_x(body, x)])
+
+
 def place_prop(
     name: str,
     host: str,
@@ -352,8 +387,10 @@ def place_prop(
     genes: dict[str, float],
     obstacles: np.ndarray,
     ground_line: bool,
+    motor_m: np.ndarray | None = None,
 ) -> Propulsor:
-    """Hub off the host end, raised clear of the ground line if any, slid clear of obstacles."""
+    """Hub off the host end, raised clear of the ground line if any, slid clear of obstacles; the
+    shaft starts at motor_m (the firewall, forward of a slim tail end) when given."""
     attach, end_radius = end
     margin = number("prop_clearance_m")
     # Clearances are kept from sampled obstacles plus a pad covering the gaps between samples.
@@ -374,7 +411,7 @@ def place_prop(
         host=host,
         mirrored=mirrored,
         hub_m=_vec(hub),
-        attach_m=_vec(attach),
+        attach_m=_vec(attach if motor_m is None else motor_m),
         diameter_m=diameter_m,
         pusher=pusher,
     )

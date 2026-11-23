@@ -10,6 +10,7 @@ import numpy as np
 
 from aeroforge.airfoil import naca_outline
 from aeroforge.constants import number, numbers
+from aeroforge.facet_hatch import in_convex, roof_panels
 from aeroforge.models import Body, Design, Frozen, Recovery, Section, Surface, Vec3
 from aeroforge.shapes import (
     X_HAT,
@@ -346,7 +347,21 @@ def contained(design: Design, it: Internal) -> bool:
     mask = np.zeros(len(pts), dtype=bool)
     for name in it.within:
         mask |= inside_part(design, name, pts)
-    return bool(mask.all())
+    return bool(mask.all()) and _hatch_on_one_panel(design, it)
+
+
+def _hatch_on_one_panel(design: Design, it: Internal) -> bool:
+    """A hatch on a flat-panel body is one panel's cut-out: its four corners (x, y) lie in one roof
+    panel's outline (True for every other internal)."""
+    if it.item != "hatch":
+        return True
+    body = next((b for b in design.bodies if b.name in it.within and b.facets is not None), None)
+    if body is None:
+        return True
+    c = np.asarray(it.centre_m[:2]) - np.asarray(body.nose_m[:2])
+    h = np.asarray(it.size_m[:2]) / 2.0
+    corners = np.array([c + h * np.array([a, b]) for a in (-1.0, 1.0) for b in (-1.0, 1.0)])
+    return any(in_convex(outline, corners).all() for outline, _ in roof_panels(body.facets))
 
 
 def surface_items(design: Design) -> list[Internal]:

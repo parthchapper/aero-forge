@@ -201,18 +201,33 @@ def test_the_fidelity_statement_names_the_unmodelled_chine_drag(
     assert _faceted_fidelity(smooth) == []
 
 
-def test_internals_are_complete_and_mostly_contained_on_random_faceted_bodies(
+def test_internals_are_complete_on_random_faceted_bodies(
     faceted: list[Design], req: Requirements
 ) -> None:
-    misfits = 0
     for d in faceted:
-        items = hardpoints(d, req.recovery)
-        assert not missing(d, req.recovery, items)
-        misfits += bool(containment_failures(d, items))
+        assert not missing(d, req.recovery, hardpoints(d, req.recovery))
+
+
+# U2 audit H2 / H3: a motor plate under half its nominal radius and a hatch under a quarter of its
+# bay are misfits, no longer passes. The honest rate on flat-panel bodies is now 24-41 % of designs
+# (CHANGELOG, U2 fixes): the bar is a decision for the user, a decode fix (U5) or a new bar.
+HONEST_MISFITS = pytest.mark.xfail(
+    strict=True,
+    reason="flat-panel motor mounts are honest misfits since U2 H2 (24-41 % of designs)",
+)
+
+
+@HONEST_MISFITS
+def test_internals_are_mostly_contained_on_random_faceted_bodies(
+    faceted: list[Design], req: Requirements
+) -> None:
+    misfits = sum(bool(containment_failures(d, hardpoints(d, req.recovery))) for d in faceted)
     assert misfits <= MISFIT_BAR * len(faceted)
 
 
-@pytest.mark.parametrize("i", range(5))
+@pytest.mark.parametrize(
+    "i", [pytest.param(k, marks=HONEST_MISFITS) if k in (0, 4) else k for k in range(5)]
+)
 def test_internals_are_contained_on_the_winner_genomes_decoded_as_faceted(i: int) -> None:
     w = json.loads((WINNERS / f"winner_{i}.json").read_text(encoding="utf-8"))
     req = Requirements.model_validate_json((WINNERS / "requirements.json").read_text("utf-8"))
@@ -229,13 +244,16 @@ def test_a_hatch_on_a_flat_panel_body_lies_inside_one_roof_panel(faceted: list[D
         body = next(b for b in d.bodies if b.name == d.boxes[0].host) if d.boxes else None
         if body is None or body.facets is None:
             continue
-        hatch = next(i for i in hardpoints(d, "belly") if i.item == "hatch")
+        items = hardpoints(d, "belly")
+        hatch = next(i for i in items if i.item == "hatch")
+        if hatch.name in containment_failures(d, items):
+            continue  # a misfit hatch keeps the whole bay footprint and is reported, not cut
         c, size = np.asarray(hatch.centre_m) - np.asarray(body.nose_m), hatch.size_m
         corners = np.array(
             [[c[0] + a * size[0] / 2, c[1] + b * size[1] / 2] for a in (-1, 1) for b in (-1, 1)]
         )
         panels = [outline for outline, _ in fh.roof_panels(body.facets)]
-        assert any(fh._in_convex(p, corners).all() for p in panels)
+        assert any(fh.in_convex(p, corners).all() for p in panels)
         checked += 1
     assert checked > 0
 

@@ -3,7 +3,7 @@ smooth envelope (style, host ends, host heights). Pure numpy, body frame, metres
 
 import numpy as np
 
-from aeroforge.facet_query import slice_section
+from aeroforge.facet_query import _hull_2d, slice_points, slice_section
 from aeroforge.models import Polyhedron
 
 
@@ -27,3 +27,20 @@ def end_radius_m(poly: Polyhedron, x_m: float) -> float:
     closes to a point or an edge, the cap's radius where it ends in a flat face."""
     width, height, _, _ = slice_section(poly, x_m)
     return min(width, height) / 2.0
+
+
+def inradius_on_axis_m(poly: Polyhedron, x_m: float) -> float:
+    """Radius [m] of the largest circle centred on the axis (y = 0, the middle of the section's
+    height) that lies inside the cross-section at x_m (body frame); 0 where the solid closes to a
+    point or an edge. This is what a round firewall plate at x_m can have."""
+    pts = slice_points(poly, x_m)
+    if len(pts) < 3:
+        return 0.0
+    hull = _hull_2d(pts)
+    if len(hull) < 3:
+        return 0.0
+    centre = np.array([0.0, (pts[:, 1].max() + pts[:, 1].min()) / 2.0])
+    edge = np.roll(hull, -1, axis=0) - hull
+    rel = centre - hull
+    dist = np.abs(edge[:, 0] * rel[:, 1] - edge[:, 1] * rel[:, 0]) / np.linalg.norm(edge, axis=1)
+    return float(dist.min())

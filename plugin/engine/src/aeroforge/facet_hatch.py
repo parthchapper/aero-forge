@@ -9,7 +9,7 @@ from aeroforge.facet_query import _normal
 from aeroforge.models import Polyhedron
 
 
-def _in_convex(poly_xy: np.ndarray, pts: np.ndarray) -> np.ndarray:
+def in_convex(poly_xy: np.ndarray, pts: np.ndarray) -> np.ndarray:
     """Mask of pts (n, 2) inside the convex polygon poly_xy (either winding, edges included)."""
     edge = np.roll(poly_xy, -1, axis=0) - poly_xy
     rel = pts[:, None, :] - poly_xy[None, :, :]
@@ -94,7 +94,7 @@ def _hatch_on_panel(
     half = np.minimum((cut.max(axis=0) - cut.min(axis=0)) / 2.0, np.minimum(mid - lo, hi - mid))
     s = rect_scale_in_panel(panel, (float(mid[0]), float(mid[1])), (float(half[0]), float(half[1])))
     sign = np.array([[a, b] for a in (-1, 1) for b in (-1, 1)])
-    return mid, half * s, s, bool(_in_convex(panel, mid + half * s * sign).all())
+    return mid, half * s, s, bool(in_convex(panel, mid + half * s * sign).all())
 
 
 def hatch_rect_xy(
@@ -139,7 +139,7 @@ def rect_scale_in_panel(
     centre, half = np.asarray(centre_xy), np.asarray(half_xy)
 
     def fits(s: float) -> bool:
-        return bool(_in_convex(panel_xy, centre + s * half * sign).all())
+        return bool(in_convex(panel_xy, centre + s * half * sign).all())
 
     lo = number("hatch_panel_floor_frac")
     if fits(1.0):

@@ -4,7 +4,14 @@ import numpy as np
 
 from aeroforge.assemble import Context, Layout, host_name, surface_area
 from aeroforge.constants import constant, number, numbers
-from aeroforge.layout import boxes_in_body, boxes_in_wing, host_end, place_prop, prop_diameter
+from aeroforge.layout import (
+    boxes_in_body,
+    boxes_in_wing,
+    firewall_attach,
+    host_end,
+    place_prop,
+    prop_diameter,
+)
 from aeroforge.models import ControlSurface, Design, Propulsor, Spar, Surface, Vec3
 from aeroforge.planform import Planform, SurfaceGenes, joined_sweep_deg
 from aeroforge.shapes import component_points, prop_points
@@ -72,20 +79,27 @@ def _props(
     if pattern in ("centre", "centre_pods"):
         if ctx.body is not None:
             host, end = ctx.body.name, host_end(ctx.body, pusher)
+            motor = firewall_attach(ctx.body, end[0], d, pusher)
         else:
+            motor = None
             root = lay.planforms[0].sections[0]
             le = np.asarray(root.le_m)
             host, end = (
                 "surface0",
                 (le + np.array([root.chord_m if pusher else 0.0, 0.0, 0.0]), 0.0),
             )
-        out.append(place_prop("prop0", host, False, end, d, pusher, ctx.genes, obstacles, ground))
+        out.append(
+            place_prop("prop0", host, False, end, d, pusher, ctx.genes, obstacles, ground, motor)
+        )
     if pattern in ("pods", "centre_pods"):
         if lay.pod is None:
             raise LayoutError("pod propellers requested without a pod")
         end = host_end(lay.pod, pusher)
+        motor = firewall_attach(lay.pod, end[0], d, pusher)
         out.append(
-            place_prop("prop1", lay.pod.name, True, end, d, pusher, ctx.genes, obstacles, ground)
+            place_prop(
+                "prop1", lay.pod.name, True, end, d, pusher, ctx.genes, obstacles, ground, motor
+            )
         )
     return tuple(out)
 
@@ -127,7 +141,10 @@ def finish_design(
         notes=notes,
     )
     obstacles = np.vstack(list(component_points(bare, include_props=False).values()))
-    design = bare.model_copy(update={"propulsors": _props(ctx, lay, pusher, pattern, obstacles)})
+    props = _props(ctx, lay, pusher, pattern, obstacles)
+    design = bare.model_copy(
+        update={"propulsors": props, "notes": (*notes, *_firewall_notes(bare, props))}
+    )
     # Mirroring keeps x, so the obstacle cloud plus one instance per prop holds the nose-most point.
     ring = int(number("body_ring_points"))
     x_min = min(
@@ -135,6 +152,25 @@ def finish_design(
         *(float(prop_points(p, ring)[:, 0].min()) for p in design.propulsors),
     )
     return translate_x(design, -x_min)
+
+
+def _firewall_notes(design: Design, props: tuple[Propulsor, ...]) -> tuple[str, ...]:
+    """One note per pusher whose firewall (and so motor and shaft start) sits forward of the host's
+    end because the end is too slim for a plate: the distance and its share of the host length."""
+    hosts = {b.name: b for b in design.bodies}
+    out = []
+    for p in props:
+        host = hosts.get(p.host)
+        if host is None or host.facets is None:
+            continue
+        end_x = host.nose_m[0] + (host.length_m if p.pusher else 0.0)
+        slide = abs(end_x - p.attach_m[0])
+        if slide > number("facet_geom_tol_m"):
+            out.append(
+                f"firewall of {p.name} moved inside {slide:.3f} m ({slide / host.length_m:.0%} "
+                f"of the host length): the {host.name} end is too slim for a motor plate"
+            )
+    return tuple(out)
 
 
 def _sx(p: Vec3, dx_m: float) -> Vec3:
