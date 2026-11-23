@@ -1,7 +1,7 @@
 """Queries on a faceted body's polyhedron: containment, box fit, planarity, closure, samples
 (SPEC §5 invariants 5, 11, 12). Pure numpy, body frame, metres."""
 
-from functools import cache
+from functools import lru_cache
 
 import numpy as np
 
@@ -15,7 +15,10 @@ def _normal(points: np.ndarray) -> np.ndarray:
     return n / np.linalg.norm(n)
 
 
-@cache
+CELLS_CACHE_SIZE = 256  # one decode builds about 8 polyhedra: bounded so a long search stays flat
+
+
+@lru_cache(maxsize=CELLS_CACHE_SIZE)
 def _cells(poly: Polyhedron) -> tuple[tuple[float, float, np.ndarray, np.ndarray], ...]:
     """Convex cells between consecutive x layers: (x_lo, x_hi, outward normals, offsets d with
     the inside n . p <= d) of the faces that span the two layers. Cap faces bound a layer only."""

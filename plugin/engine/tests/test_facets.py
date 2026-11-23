@@ -233,3 +233,11 @@ def test_an_upswept_faceted_body_keeps_flat_faces_and_follows_the_axis_law(
         x = np.linspace(0.05, 0.95, 12) * LENGTH_M
         axis = np.column_stack([x, np.zeros(12), f.axis_rise_m(x / LENGTH_M, sh, LENGTH_M, 12.0)])
         assert q.inside_faceted(poly, axis).all()  # the axis still runs through the solid
+
+
+def test_the_cell_cache_is_bounded_and_samples_are_not_cached(shapes: list[BodyShape]) -> None:
+    q._cells.cache_clear()
+    for i, sh in enumerate(shapes * 3):
+        q._cells(f.body_polyhedron(f.effective_plan(sh), sh, LENGTH_M + 1e-3 * i, AXES_M))
+    assert q._cells.cache_info().currsize <= q.CELLS_CACHE_SIZE
+    assert not hasattr(q.sample_points, "cache_info")
