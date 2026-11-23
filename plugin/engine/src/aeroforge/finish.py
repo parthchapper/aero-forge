@@ -4,10 +4,10 @@ import numpy as np
 
 from aeroforge.assemble import Context, Layout, host_name, surface_area
 from aeroforge.constants import constant, number, numbers
+from aeroforge.faceted_body import firewall_attach
 from aeroforge.layout import (
     boxes_in_body,
     boxes_in_wing,
-    firewall_attach,
     host_end,
     place_prop,
     prop_diameter,

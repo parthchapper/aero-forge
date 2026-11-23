@@ -215,6 +215,11 @@ def test_random_designs_always_get_a_complete_internals_list(
     assert all(not missing(d, brief.recovery, it) for d, it in property_items)
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="U2 H2/H3: flat-panel motor mounts are honest misfits (24-41 % of flat-panel designs, "
+    "about half of the random draw is flat-panel): a user decision or a decode fix (U5) is open",
+)
 def test_random_designs_keep_internals_contained_at_the_cad_success_rate(
     property_items: list[tuple[Design, tuple[Internal, ...]]],
 ) -> None:

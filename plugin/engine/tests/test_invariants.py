@@ -9,6 +9,7 @@ import numpy as np
 
 from aeroforge.airfoil import local_thickness_frac
 from aeroforge.constants import constant, number
+from aeroforge.faceted_body import firewall_attach
 from aeroforge.genetable import family_of, gene_table, unpack
 from aeroforge.genome import decode, fin_capped
 from aeroforge.layout import host_end
@@ -147,6 +148,8 @@ def test_propellers_attach_to_their_host_end(decoded: list[Design]) -> None:
         for p in d.propulsors:
             if p.host in bodies:
                 expected = host_end(bodies[p.host], p.pusher)[0]
+                # a flat-panel end too slim for a motor plate: the firewall sits inside it
+                expected = firewall_attach(bodies[p.host], expected, p.diameter_m, p.pusher)
             else:
                 root = _surface(d, "surface0").sections[0]
                 expected = np.asarray(root.le_m) + np.array([root.chord_m if p.pusher else 0, 0, 0])

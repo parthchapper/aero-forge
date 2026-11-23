@@ -108,6 +108,7 @@ Hold for every genome; property-tested on 1,000 seeded random genomes.
 5. Payload, battery and avionics boxes fit inside a body or thick centre section (body sized to fit).
 6. Spar = largest tube in the constants.yaml table that fits local thickness minus 2 skins along the whole spar line. None fits → surface thickened, else dropped.
 7. Prop discs clear all surfaces, bodies and the ground line by the margin in constants.yaml.
+7a. (U2) A propeller's shaft starts at its host's end, except on a flat-panel host whose end is too slim for a motor plate of half the nominal radius: there the motor attach point (firewall, drive mass, start of the shaft) sits inside the host where the plate fits (at most `mount_slide_body_frac` of its length from the end), and the decoder says so in `Design.notes`. A mount that still has no plate of half the radius is a containment failure.
 8. Tip joins close exactly (shared tip point and chord).
 9. Style family respected, including: **body fineness (length / max diameter) is measured on the diameter that inline box packing would need (decision B1, U0)**. It is exact for inline packing, the wing_root fallback, plain bodies and pods, and at most the gene for side_by_side / stacked packing, whose section never drops below the box fit. Pods use the centre body's `body_style`.
 10. Deterministic: same genome + Requirements (+ bounds) → identical Design.
