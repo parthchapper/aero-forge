@@ -222,14 +222,14 @@ Build:
 - `airplane.py` / `aero.py`: AeroBuildup gets an equivalent section (same width, height and area). Check the installed `FuselageXSec` arguments first. Known issue: the extra drag of sharp chines is not modelled. One line goes into the report's fidelity statement.
 - `internals.py`: exact flat-face containment. Hatch outlines follow face edges.
 - Writer for `designs/<id>/panels/`:
-  - `panels.csv`: one row per face: id, part, area, edge lengths, bevel angle to each neighbour.
-  - `panels.svg`: every face laid flat, numbered and dimensioned.
+  - `panels.csv`: one row per physical sheet (neighbouring faces in one plane merged, U2 user decision): id, part, area, edge lengths, bevel angle to each neighbour.
+  - `panels.svg`: every sheet laid flat, numbered and dimensioned.
 
 Tests:
 - CAD builds at least 98 % of 100 random faceted genomes (`slow`).
 - CAD volume within 1 % of the polyhedron volume.
 - The equivalent aero section has the polygon's area.
-- `panels.csv` has N rows per faceted body, and its areas sum to the wetted area.
+- `panels.csv` has one row per physical sheet (at most N per faceted body), and its areas sum to the wetted area.
 - Internals are contained on the 5 winner fixtures re-decoded as faceted.
 
 **User gate:** `python -m aeroforge gallery --n 50 --seed 1` with `body_style` pinned to faceted. Pass = clearly flat-panel bodies, nothing broken or floating, and one `panels.svg` that looks right to you.

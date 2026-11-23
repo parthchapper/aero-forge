@@ -6,6 +6,7 @@ import numpy as np
 
 from aeroforge.airfoil import naca_outline
 from aeroforge.constants import constant, number, numbers
+from aeroforge.facet_metrics import end_radius_m
 from aeroforge.facet_query import fit_scale
 from aeroforge.faceted_body import faceted_body, tail_radius_frac
 from aeroforge.facets import FacetError, axis_rise_m, facet_body
@@ -312,13 +313,18 @@ def place_pod(
 
 
 def host_end(body: Body, pusher: bool) -> tuple[np.ndarray, float]:
-    """Attach point at the nose (tractor) or tail (pusher) of a body, and the local radius [m]."""
+    """Attach point at the nose (tractor) or tail (pusher) of a body, and the local radius [m]: of
+    the tail cap of a smooth body, of the end section of a flat-panel one (0 where it closes to a
+    point or an edge)."""
     nose = np.asarray(body.nose_m)
     if not pusher:
         return nose, 0.0
-    radius = float(body_radius_frac(body, np.array([1.0]))[0]) * min(
-        body.half_width_m, body.half_height_m
-    )
+    if body.facets is not None:
+        radius = end_radius_m(body.facets, body.length_m)
+    else:
+        radius = float(body_radius_frac(body, np.array([1.0]))[0]) * min(
+            body.half_width_m, body.half_height_m
+        )
     rise = float(body_axis_z(body, np.array([1.0]))[0]) - body.nose_m[2]
     return nose + np.array([body.length_m, 0.0, rise]), radius
 

@@ -1,8 +1,9 @@
 """Panel cut list of flat-panel bodies (SPEC §11): panels.csv rows and the panels.svg layout.
 
-Pure data in, text out; the writer is `write_panels`. Faces are numbered `<body>-F###` in the
-polyhedron's face order. Bevel = angle [deg] between the outward normals of a face and its
-neighbour across an edge (0 = the two lie in one plane; the saw angle for a mitre is half of it)."""
+Pure data in, text out; the writer is `write_panels`. A row is one physical sheet: neighbouring
+faces in one plane are merged (facet_pieces), so a body of N faces has N or fewer rows. Sheets are
+numbered `<body>-F###` in the order of their first face. Bevel = angle [deg] between the outward
+normals of a sheet and its neighbour across an edge (the saw angle for a mitre is half of it)."""
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,8 +11,8 @@ from pathlib import Path
 import numpy as np
 
 from aeroforge.constants import number
-from aeroforge.facet_query import face_areas_m2
-from aeroforge.models import Body, Design, Polyhedron
+from aeroforge.facet_pieces import pieces
+from aeroforge.models import Body, Design
 
 CSV_HEADER = "id,part,count,area_m2,edge_lengths_m,neighbour_ids,bevel_deg"
 PANELS_DIR, CSV_FILE, SVG_FILE = "panels", "panels.csv", "panels.svg"
@@ -20,7 +21,7 @@ MM = 1000.0
 
 @dataclass(frozen=True)
 class Panel:
-    """One flat face of a body: its corners [m] in loop order and its edge data."""
+    """One flat sheet of a body: its corners [m] in loop order and its edge data."""
 
     id: str
     part: str
@@ -32,50 +33,35 @@ class Panel:
     bevel_deg: tuple[float, ...]
 
 
-def _unit_normals(poly: Polyhedron) -> np.ndarray:
-    """Outward unit normal (Newell) of every face."""
-    v = np.asarray(poly.vertices_m)
-    out = []
-    for face in poly.faces:
-        p = v[list(face)]
-        n = np.cross(p, np.roll(p, -1, axis=0)).sum(axis=0)
-        out.append(n / np.linalg.norm(n))
-    return np.array(out)
-
-
-def _edge_loop(face: tuple[int, ...]) -> list[tuple[int, int]]:
-    """Directed edges of a face loop: corner i to corner i + 1."""
-    return list(zip(face, face[1:] + face[:1], strict=True))
-
-
 def body_panels(body: Body) -> list[Panel]:
-    """Panels of one faceted body (empty for a smooth one)."""
+    """Panels (physical sheets) of one faceted body, empty for a smooth one: neighbouring faces in
+    one plane are one sheet, so the rows are the pieces to cut. Bevel = angle [deg] between the
+    outward normals of a sheet and its neighbour across an edge."""
     poly = body.facets
     if poly is None:
         return []
     v = np.asarray(poly.vertices_m)
-    normals, areas = _unit_normals(poly), face_areas_m2(poly)
-    ids = [f"{body.name}-F{k + 1:03d}" for k in range(len(poly.faces))]
-    across: dict[tuple[int, int], list[int]] = {}
-    for k, face in enumerate(poly.faces):
-        for a, b in _edge_loop(face):
-            across.setdefault((min(a, b), max(a, b)), []).append(k)
+    sheets = pieces(poly)
+    ids = [f"{body.name}-F{k + 1:03d}" for k in range(len(sheets))]
     panels = []
-    for k, face in enumerate(poly.faces):
-        loop = _edge_loop(face)
-        other = [next(j for j in across[(min(a, b), max(a, b))] if j != k) for a, b in loop]
+    for k, sheet in enumerate(sheets):
+        corners = v[list(sheet.loop)]
         bevel = [
-            float(np.degrees(np.arccos(np.clip(normals[k] @ normals[j], -1.0, 1.0)))) for j in other
+            float(np.degrees(np.arccos(np.clip(sheet.normal @ sheets[j].normal, -1.0, 1.0))))
+            for j in sheet.across
         ]
         panels.append(
             Panel(
                 id=ids[k],
                 part=body.name,
                 count=2 if body.mirrored else 1,
-                area_m2=float(areas[k]),
-                corners_m=v[list(face)],
-                edge_lengths_m=tuple(float(np.linalg.norm(v[a] - v[b])) for a, b in loop),
-                neighbour_ids=tuple(ids[j] for j in other),
+                area_m2=sheet.area_m2,
+                corners_m=corners,
+                edge_lengths_m=tuple(
+                    float(np.linalg.norm(corners[i] - corners[(i + 1) % len(corners)]))
+                    for i in range(len(corners))
+                ),
+                neighbour_ids=tuple(ids[j] for j in sheet.across),
                 bevel_deg=tuple(bevel),
             )
         )

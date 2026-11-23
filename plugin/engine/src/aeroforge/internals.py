@@ -234,9 +234,10 @@ def _tray_in_body(s: Surface, body: Body) -> Internal:
     # (mirrored itself) the right tray sits on the right pod's axis
     y = body.nose_m[1] + (width if s.mirrored and not body.mirrored else 0.0)
     mid = root.le_m[0] + root.chord_m / 2
-    steps = int(number("servo_tray_slide_steps"))
+    span = number("servo_tray_slide_chords")
+    steps = int(number("servo_tray_slide_steps") * 2 * span)
     first = None
-    for f in sorted(np.linspace(-0.5, 0.5, steps + 1), key=abs):
+    for f in sorted(np.linspace(-span, span, steps + 1), key=abs):
         x = mid + float(f) * root.chord_m
         tray = _body_tray(s, body, (x, y, axis_z_at_x(body, x)))
         first = first or tray

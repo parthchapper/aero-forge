@@ -34,9 +34,9 @@ def _cosine(a: np.ndarray, b: np.ndarray) -> float:
     return float(a @ b / (np.linalg.norm(a) * np.linalg.norm(b)))
 
 
-def test_fit_recovers_known_weights_from_synthetic_marks(designs: list[Design]) -> None:
+def test_fit_recovers_known_weights_from_synthetic_marks(full_designs: list[Design]) -> None:
     rng = np.random.default_rng(SYNTH_SEED)
-    x = np.array([features(d) for d in designs])
+    x = np.array([features(d) for d in full_designs])
     truth = _true_model(x, rng)
     draws = 8  # repeated marks of the same designs shrink label noise
     xs = np.repeat(x, draws, axis=0)

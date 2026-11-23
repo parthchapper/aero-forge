@@ -93,6 +93,14 @@ def designs(genomes: np.ndarray, req: Requirements) -> list[Design]:
     return [decode(g, req) for g in genomes]
 
 
+@pytest.fixture(scope="session")
+def full_designs(req: Requirements) -> list[Design]:
+    """All 1,000 seeded random designs whatever the population param: for the few tests whose
+    claim is statistical or an existence claim over the full draw (never cut to the smoke rows)."""
+    full = random_genomes(np.random.default_rng(PROPERTY_SEED), N_PROPERTY_GENOMES)
+    return [decode(g, req) for g in full]
+
+
 @pytest.fixture(scope="session", params=BRIEFS)
 def brief(request: pytest.FixtureRequest) -> Requirements:
     return brief_requirements(request.param)

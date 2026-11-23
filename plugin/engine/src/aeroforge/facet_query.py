@@ -208,11 +208,12 @@ def surface_area_m2(poly: Polyhedron) -> float:
     return float(face_areas_m2(poly).sum())
 
 
-def area_centroid_x_m(poly: Polyhedron) -> float:
-    """x [m] of the centroid of the skin (area-weighted), body frame."""
+def area_centroid_m(poly: Polyhedron) -> np.ndarray:
+    """(x, y, z) [m] of the centroid of the skin (area-weighted), body frame: z follows the
+    tail upsweep."""
     tris, _ = _triangles(poly)
     area = np.linalg.norm(np.cross(tris[:, 1] - tris[:, 0], tris[:, 2] - tris[:, 0]), axis=1) / 2.0
-    return float((area * tris[:, :, 0].mean(axis=1)).sum() / area.sum())
+    return (area[:, None] * tris.mean(axis=1)).sum(axis=0) / area.sum()
 
 
 def volume_m3(poly: Polyhedron) -> float:
@@ -274,84 +275,3 @@ def equivalent_exponent(width_m: float, height_m: float, area_m2: float) -> floa
     if fill <= 0.0:
         return top
     return float(np.clip(fill ** (-1.0 / ASB_AREA_POWER), 1.0, top))
-
-
-def _in_convex(poly_xy: np.ndarray, pts: np.ndarray) -> np.ndarray:
-    """Mask of pts (n, 2) inside the convex polygon poly_xy (either winding, edges included)."""
-    edge = np.roll(poly_xy, -1, axis=0) - poly_xy
-    rel = pts[:, None, :] - poly_xy[None, :, :]
-    side = edge[None, :, 0] * rel[:, :, 1] - edge[None, :, 1] * rel[:, :, 0]
-    tol = number("facet_geom_tol_m")
-    return np.all(side >= -tol, axis=1) | np.all(side <= tol, axis=1)
-
-
-def roof_panels_xy(poly: Polyhedron) -> list[np.ndarray]:
-    """Outlines (x, y) [m, body frame] of the upward-facing faces: the roof panels."""
-    v = np.asarray(poly.vertices_m)
-    tol = number("facet_geom_tol_m")
-    return [v[list(f)][:, :2] for f in poly.faces if _normal(v[list(f)])[2] > tol]
-
-
-def _clip(poly_xy: np.ndarray, axis: int, value: float, keep_above: bool) -> np.ndarray:
-    """Convex polygon cut by the line coordinate[axis] = value (Sutherland-Hodgman)."""
-    sign = 1.0 if keep_above else -1.0
-    out: list[np.ndarray] = []
-    for a, b in zip(poly_xy, np.roll(poly_xy, -1, axis=0), strict=True):
-        da, db = sign * (a[axis] - value), sign * (b[axis] - value)
-        if da >= 0.0:
-            out.append(a)
-        if (da >= 0.0) != (db >= 0.0):
-            out.append(a + (b - a) * da / (da - db))
-    return np.array(out).reshape(-1, 2)
-
-
-def _area_xy(p: np.ndarray) -> float:
-    """Area of a convex polygon [m^2] (0 for fewer than 3 corners)."""
-    if len(p) < 3:
-        return 0.0
-    return abs(float(np.sum(p[:, 0] * np.roll(p[:, 1], -1) - np.roll(p[:, 0], -1) * p[:, 1]))) / 2.0
-
-
-def hatch_rect_xy(
-    poly: Polyhedron, centre_xy: tuple[float, float], half_xy: tuple[float, float]
-) -> tuple[tuple[float, float], tuple[float, float]]:
-    """(centre, half sizes) [m, body frame] of the hatch rectangle for a bay footprint: the roof
-    panel covering most of the footprint, the footprint cut back to that panel's edges, then
-    shrunk about its centre until its corners lie in the panel. Unchanged without a roof panel."""
-    lo = np.asarray(centre_xy) - np.asarray(half_xy)
-    hi = np.asarray(centre_xy) + np.asarray(half_xy)
-    best, best_area = None, 0.0
-    for panel in roof_panels_xy(poly):
-        cut = panel
-        for axis in (0, 1):
-            cut = _clip(_clip(cut, axis, lo[axis], True), axis, hi[axis], False)
-        if _area_xy(cut) > best_area:
-            best, best_area, box = panel, _area_xy(cut), cut
-    if best is None:
-        return centre_xy, half_xy
-    mid, half = (box.min(axis=0) + box.max(axis=0)) / 2.0, (box.max(axis=0) - box.min(axis=0)) / 2.0
-    s = rect_scale_in_panel(best, (float(mid[0]), float(mid[1])), (float(half[0]), float(half[1])))
-    return (float(mid[0]), float(mid[1])), (float(half[0] * s), float(half[1] * s))
-
-
-def rect_scale_in_panel(
-    panel_xy: np.ndarray, centre_xy: tuple[float, float], half_xy: tuple[float, float]
-) -> float:
-    """Largest scale in [hatch_panel_min_frac, 1] of the rectangle (half sizes half_xy about
-    centre_xy) whose four corners lie in the panel outline: the hatch ends on the panel's edges."""
-    sign = np.array([[a, b] for a in (-1, 1) for b in (-1, 1)])
-    centre, half = np.asarray(centre_xy), np.asarray(half_xy)
-
-    def fits(s: float) -> bool:
-        return bool(_in_convex(panel_xy, centre + s * half * sign).all())
-
-    lo = number("hatch_panel_min_frac")
-    if fits(1.0):
-        return 1.0
-    if not fits(lo):
-        return lo
-    hi = 1.0
-    for _ in range(int(number("outline_search_steps"))):
-        mid = (lo + hi) / 2
-        lo, hi = (mid, hi) if fits(mid) else (lo, mid)
-    return lo

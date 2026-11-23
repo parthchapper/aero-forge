@@ -7,10 +7,12 @@ import numpy as np
 import pytest
 import trimesh
 
+import aeroforge.facet_hatch as fh
 import aeroforge.facet_query as q
 from aeroforge.airplane import fuselages
 from aeroforge.checks import evaluate
 from aeroforge.constants import number
+from aeroforge.facet_pieces import pieces
 from aeroforge.genetable import pin_choice
 from aeroforge.genome import decode, random_genomes
 from aeroforge.geom import GeometryError, build_parts, exact_volumes_m3
@@ -28,8 +30,8 @@ FAST_DESIGNS = 40
 CAD_SAMPLE = 100
 CAD_SUCCESS_FLOOR = 0.98
 VOLUME_DESIGNS = 8
-VOLUME_REL_TOL = 0.01  # plan U2 bar; planar faces are exact, so the real error is ~1e-9
-MISFIT_BAR = 0.02  # SPEC §5 bar applied to internals containment (decision U1)
+VOLUME_REL_TOL = 1e-6  # plan U2 bar is 1 %; planar faces are exact, the real error is ~1e-9
+MISFIT_BAR = 0.01  # F6: internals containment, target 1 % (SPEC §5 bar is 2 %)
 AREA_REL_TOL = 3e-3
 WINNERS = Path(__file__).parent / "fixtures" / "winners"
 
@@ -61,7 +63,7 @@ def test_polyhedron_volume_area_and_slice_of_a_cube_are_exact() -> None:
     cube = _cube()
     assert q.volume_m3(cube) == pytest.approx(1.0)
     assert q.surface_area_m2(cube) == pytest.approx(6.0)
-    assert q.area_centroid_x_m(cube) == pytest.approx(0.5)
+    assert q.area_centroid_m(cube) == pytest.approx([0.5, 0.0, 0.0])
     assert q.slice_section(cube, 0.4) == pytest.approx((1.0, 1.0, 1.0, 0.0))
 
 
@@ -90,23 +92,24 @@ def test_the_equivalent_aero_section_has_the_polygons_area(faceted: list[Design]
 def test_skin_mass_comes_from_the_exact_wetted_area(faceted: list[Design]) -> None:
     for d in faceted:
         for b in d.bodies:
-            density = number("body_areal_density_kg_m2")
+            density = number("faceted_panel_thickness_m") * number("faceted_panel_density_kg_m3")
             instances = 2 if b.mirrored else 1
             assert _body_item(b).mass_kg == pytest.approx(
                 instances * q.surface_area_m2(b.facets) * density
             )
 
 
-def test_panels_csv_has_one_row_per_face_and_the_areas_sum_to_the_wetted_area(
+def test_panels_csv_has_one_row_per_sheet_and_the_areas_sum_to_the_wetted_area(
     faceted: list[Design],
 ) -> None:
     for d in faceted:
         panels = design_panels(d)
         rows = panels_csv(panels).splitlines()[1:]
-        assert len(rows) == sum(len(b.facets.faces) for b in d.bodies)
+        assert len(rows) == sum(len(pieces(b.facets)) for b in d.bodies)
+        assert len(rows) <= sum(len(b.facets.faces) for b in d.bodies)
         for b in d.bodies:
             mine = [r.split(",") for r in rows if r.split(",")[1] == b.name]
-            assert len(mine) == len(b.facets.faces)
+            assert len(mine) == len(pieces(b.facets))
             total = sum(float(r[3]) for r in mine)
             assert total == pytest.approx(q.surface_area_m2(b.facets), rel=1e-5)
 
@@ -180,8 +183,8 @@ def test_a_hatch_on_a_flat_panel_body_lies_inside_one_roof_panel(faceted: list[D
         corners = np.array(
             [[c[0] + a * size[0] / 2, c[1] + b * size[1] / 2] for a in (-1, 1) for b in (-1, 1)]
         )
-        panels = q.roof_panels_xy(body.facets)
-        assert any(q._in_convex(p, corners).all() for p in panels)
+        panels = fh.roof_panels_xy(body.facets)
+        assert any(fh._in_convex(p, corners).all() for p in panels)
         checked += 1
     assert checked > 0
 

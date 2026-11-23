@@ -5,7 +5,7 @@ from itertools import pairwise
 import numpy as np
 
 from aeroforge.constants import number, numbers
-from aeroforge.facet_query import area_centroid_x_m, surface_area_m2
+from aeroforge.facet_query import area_centroid_m, surface_area_m2
 from aeroforge.models import Body, Design, Frozen, Requirements, Surface, Vec3
 from aeroforge.shapes import body_rings, body_stations
 
@@ -87,9 +87,9 @@ def _surface_items(s: Surface) -> list[MassItem]:
     return items
 
 
-def _smooth_wetted(b: Body) -> tuple[float, float]:
-    """Wetted area [m^2] and its centroid x [m, from the nose] of a smooth body (ring perimeters
-    integrated along x)."""
+def _smooth_wetted(b: Body) -> tuple[float, np.ndarray]:
+    """Wetted area [m^2] and its centroid [m, from the nose; on the axis line at its x] of a
+    smooth body (ring perimeters integrated along x)."""
     t = body_stations(int(number("body_loft_stations")))
     rings = body_rings(b, t, int(number("body_ring_points")))
     closed = np.concatenate([rings, rings[:, :1]], axis=1)
@@ -97,17 +97,20 @@ def _smooth_wetted(b: Body) -> tuple[float, float]:
     x = t * b.length_m
     strip = np.diff(x) * (perimeter[:-1] + perimeter[1:]) / 2
     wetted = float(strip.sum())
-    return wetted, float((strip * (x[:-1] + x[1:]) / 2).sum() / wetted)
+    return wetted, np.array([float((strip * (x[:-1] + x[1:]) / 2).sum() / wetted), 0.0, 0.0])
 
 
 def _body_item(b: Body) -> MassItem:
-    """Shell mass of a body from its wetted area (exact sum of the flat faces when faceted)."""
+    """Shell mass of a body from its wetted area: for flat panels the exact sum of the faces times
+    sheet thickness times sheet density, centred on the area centroid (z follows the upsweep)."""
     if b.facets is not None:
-        wetted, x_c = surface_area_m2(b.facets), area_centroid_x_m(b.facets)
+        wetted, offset = surface_area_m2(b.facets), area_centroid_m(b.facets)
+        areal = number("faceted_panel_thickness_m") * number("faceted_panel_density_kg_m3")
     else:
-        wetted, x_c = _smooth_wetted(b)
-    centre = _on_centreline(np.asarray(b.nose_m) + np.array([x_c, 0, 0]), b.mirrored)
-    mass = _instances(b.mirrored) * wetted * number("body_areal_density_kg_m2")
+        wetted, offset = _smooth_wetted(b)
+        areal = number("body_areal_density_kg_m2")
+    centre = _on_centreline(np.asarray(b.nose_m) + offset, b.mirrored)
+    mass = _instances(b.mirrored) * wetted * areal
     return MassItem(name=b.name, mass_kg=mass, xyz_m=_vec(centre))
 
 

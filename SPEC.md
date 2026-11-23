@@ -194,7 +194,7 @@ CAD build succeeds for ≥ 98 % of random genomes; a failure raises a typed erro
 - Completeness = every item above exists. Containment = each part's section fits the local outer mould (analytic; exact flat-face test for faceted bodies).
 
 ## 11 Outputs — `designs/<id>/`
-`brief.yaml requirements.json design.yaml genome.json finalists.json check.json critique.json views/{iso,top,front,side}.png parts/*.step assembly.step assembly.glb report.md viewer.html`, and from U2 `panels/panels.csv` (one row per flat face: id, part, area, edge lengths, bevel angle to each neighbour) and `panels/panels.svg` (every face laid flat, numbered, dimensioned).
+`brief.yaml requirements.json design.yaml genome.json finalists.json check.json critique.json views/{iso,top,front,side}.png parts/*.step assembly.step assembly.glb report.md viewer.html`, and from U2 `panels/panels.csv` (one row per physical sheet, neighbouring faces in one plane merged, so at most N rows for N panels: id, part, area, edge lengths, bevel angle to each neighbour) and `panels/panels.svg` (every sheet laid flat, numbered, dimensioned).
 - `report.md`: brief vs achieved per check (PASS/FAIL + margin); novelty (nearest reference by name + distance, nearest past design); seed and r (and alienness); shadow areas; assumed constants; fidelity statement; (U5) Controls section (value and source of each); (U6) Funnel section.
 - `viewer.html`: self-contained; three.js + GLTFLoader + OrbitControls via importmap from cdn.jsdelivr.net; GLB as base64; click a part → name + Design fields; opens from file://.
 

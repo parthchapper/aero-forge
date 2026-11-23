@@ -132,10 +132,10 @@ def test_pods_sit_on_surface0(decoded: list[Design]) -> None:
                 assert inside_body(b, _chord_line_at_y(s0, b.nose_m[1])).any()
 
 
-def test_joins_and_pods_coexist(designs: list[Design]) -> None:
+def test_joins_and_pods_coexist(full_designs: list[Design]) -> None:
     both = [
         d
-        for d in designs
+        for d in full_designs
         if any(s.joined_to for s in d.surfaces) and any(b.name == "pod" for b in d.bodies)
     ]
     assert both

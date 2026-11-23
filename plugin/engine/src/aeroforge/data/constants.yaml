@@ -125,6 +125,8 @@ s_min: {value: 0.6, unit: "-", source: "SPEC §7"}
 # --- mass (SPEC §8) ---
 surface_areal_density_kg_m2: {value: 0.6, unit: kg/m2, source: "assumed foam core + glass skin per wetted area"}
 body_areal_density_kg_m2: {value: 0.8, unit: kg/m2, source: "assumed glass/foam shell per wetted area"}
+faceted_panel_thickness_m: {value: 0.004, unit: m, source: "U2 assumed sheet thickness of a flat panel (foam core with glass skin)"}
+faceted_panel_density_kg_m3: {value: 200, unit: kg/m3, source: "U2 assumed effective sheet density: 0.004 m x 200 = 0.8 kg/m2, the smooth body shell's areal density (body_areal_density_kg_m2), so a faceted and a smooth body of equal wetted area weigh the same"}
 surface_wetted_coeffs: {value: [1.977, 0.52], unit: "-", source: "Raymer: S_wet / S = 1.977 + 0.52 t/c"}
 surface_centroid_chord_frac: {value: 0.4, unit: "-", source: "assumed chordwise mass centroid of a surface"}
 spar_density_kg_m3: {value: 1550, unit: kg/m3, source: "carbon/epoxy tube"}
@@ -234,6 +236,9 @@ mount_plate_thickness_m: {value: 0.003, unit: m, source: "assumed plywood / G10 
 mount_plate_inset_m: {value: 0.01, unit: m, source: "assumed firewall distance inside the host end along the shaft"}
 mount_bolt_circle_frac: {value: 0.6, unit: "-", source: "bolt circle radius / plate radius"}
 mount_bolt_d_m: {value: 0.003, unit: m, source: "M3 motor bolts"}
+mount_plate_min_frac: {value: 0.5, unit: "-", source: "U2 assumed smallest firewall radius / full radius worth bolting a motor to (>= 10 mm of a 20 mm plate)"}
+mount_slide_steps: {value: 40, unit: count, source: "U2 positions tried along the shaft when a flat-panel host closes to a point or an edge at the end"}
+mount_slide_body_frac: {value: 0.25, unit: "-", source: "U2 farthest the firewall slides forward of a pointed end, as a share of the host length"}
 mount_bolt_count: {value: 4, unit: count, source: "typical outrunner cross mount"}
 bay_frame_wall_m: {value: 0.002, unit: m, source: "assumed bay frame wall (open-top tray around each box)"}
 hatch_thickness_m: {value: 0.0015, unit: m, source: "assumed hatch outline frame thickness"}
@@ -247,9 +252,12 @@ view_px: {value: 1024, unit: px, source: "SPEC §6 views at 1024 px"}
 viewer_three_version: {value: "0.160.0", unit: "-", source: "three.js release loaded by viewer.html from cdn.jsdelivr.net (SPEC §11)"}
 report_fidelity: {value: "Conceptual design. Tier-2 aerodynamics are a vortex-lattice model of the wings plus a buildup model for bodies and profile drag; masses come from areal densities and component tables; structure is a cantilever spar estimate; internals are placement envelopes checked analytically against the outer mould. None of it replaces wind-tunnel, structural or flight testing.", unit: "-", source: "SPEC §11 fidelity statement"}
 equiv_section_exp_max: {value: 40.0, unit: "-", source: "U2: largest super-ellipse exponent of the equivalent aero section of a faceted body (a rectangle; the asb area formula is within 0.1 % of the box there)"}
-servo_tray_slide_steps: {value: 12, unit: count, source: "U2: positions tried along the root chord for a body-hosted servo tray that does not fit at mid chord (narrow nose of a faceted body)"}
+servo_tray_slide_steps: {value: 12, unit: count, source: "U2: positions tried per root chord when sliding a body-hosted servo tray that does not fit at mid chord (narrow nose or tail of a flat-panel body)"}
+servo_tray_slide_chords: {value: 1.5, unit: "-", source: "U2: farthest a body-hosted servo tray slides from mid chord, in root chords (a longer pushrod)"}
 panels_sheet_width_mm: {value: 900.0, unit: mm, source: "U2: width of the flat-panel layout sheet (panels.svg); faces are packed in rows"}
 panels_gap_mm: {value: 12.0, unit: mm, source: "U2: gap between faces on the panels sheet"}
 panels_font_mm: {value: 4.0, unit: mm, source: "U2: label height on the panels sheet"}
 hatch_panel_min_frac: {value: 0.25, unit: "-", source: "U2: smallest share of the bay footprint a hatch on a flat-panel body shrinks to when the roof panel over the bay is narrower than the bay"}
+hatch_panel_floor_frac: {value: 0.02, unit: "-", source: "U2: smallest share of the bay footprint a hatch shrinks to when no roof panel holds a larger one (a sliver of panel at a tapering end); hatch_panel_min_frac is the share below which the hatch is called small"}
+hatch_panel_edge_margin_frac: {value: 1.0e-4, unit: "-", source: "U2: a hatch on a flat panel stops this share of its size short of the panel edge, so its corners are inside for every tolerance of the edge tests"}
 report_fidelity_faceted: {value: "A flat-panel body enters the aerodynamic model as an equivalent smooth section (same width, height and area at each station); the extra drag of its sharp chines and edges is not modelled.", unit: text, source: "U2: SPEC 8 fidelity statement for faceted bodies, added to the report when a body is flat-panel"}

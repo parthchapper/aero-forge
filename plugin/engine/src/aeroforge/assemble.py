@@ -17,7 +17,7 @@ from aeroforge.planform import (
     joined_root_chord,
     section_areas,
 )
-from aeroforge.shapes import body_axis_z, body_radius_frac
+from aeroforge.shapes import axis_z_at_x, body_radius_frac
 from aeroforge.shift import Anchor, anchored_x_m
 
 # Placed roots per host name: (root leading-edge x [m], trailing-edge x [m], cant [deg], index).
@@ -145,7 +145,7 @@ def root_reach_m(body: Body, x_lo_m: float, x_hi_m: float) -> float:
         half_h = axis_half_height_m(body.facets, x_lo_m - body.nose_m[0], x_hi_m - body.nose_m[0])
     else:
         half_h = body.half_height_m * float(body_radius_frac(body, t).min())
-    ends = body_axis_z(body, t)
+    ends = np.array([axis_z_at_x(body, x_lo_m), axis_z_at_x(body, x_hi_m)])
     return number("root_z_usable_frac") * half_h - abs(float(ends[1] - ends[0])) / 2
 
 
@@ -167,7 +167,7 @@ def _body_root(
     x, fits = _fit_x(lo + want, chord_m, cant_deg, placed, (lo, lo + body.length_m))
     # The radius law rises, holds, then falls, so its minimum over the chord is at an end; a tail
     # upsweep lifts the axis along the chord, so the root is centred on its middle.
-    ends = body_axis_z(body, (np.array([x - chord_m / 2, x + chord_m / 2]) - lo) / body.length_m)
+    ends = np.array([axis_z_at_x(body, x - chord_m / 2), axis_z_at_x(body, x + chord_m / 2)])
     reach = root_reach_m(body, x - chord_m / 2, x + chord_m / 2)
     z = float(ends.mean()) + g.root_z_frac * max(reach, 0.0)
     return (x, body.nose_m[1], z), fits

@@ -8,7 +8,9 @@ from collections.abc import Callable
 import numpy as np
 
 from aeroforge.constants import number, numbers
-from aeroforge.facet_query import hatch_rect_xy, slice_section
+from aeroforge.facet_hatch import hatch_rect_xy
+from aeroforge.facet_metrics import vertical_extent_m
+from aeroforge.facet_query import slice_section
 from aeroforge.internals import (
     Internal,
     contained,
@@ -60,21 +62,19 @@ def _vec(a: np.ndarray) -> tuple[float, float, float]:
     return (float(a[0]), float(a[1]), float(a[2]))
 
 
-def _mount(design: Design, p: Propulsor) -> Internal:
-    """Firewall disc inside the host end (normal to x) with the motor bolt circle; its radius is
-    the largest (up to mount_plate_radius_frac x D) whose rim stays in the host."""
-    # normal to x, not to the shaft: a raised, tilted shaft would swing the rim out of the host end
+def _mount_base(design: Design, p: Propulsor, inset_m: float) -> Internal:
+    """Firewall disc normal to x (not to the shaft: a raised, tilted shaft would swing the rim out
+    of the host end), inset_m inside the host end along the shaft; radius 0 until sized."""
     axis = np.eye(3)[0] * (1.0 if p.pusher else -1.0)
     t = number("mount_plate_thickness_m")
-    centre = np.asarray(p.attach_m) - axis * (number("mount_plate_inset_m") + t / 2)
+    centre = np.asarray(p.attach_m) - axis * (inset_m + t / 2)
     host = next((b for b in design.bodies if b.name == p.host), None)
     if host is not None:  # a raised tail axis lies lower at the plate than at the attach point
         drop = axis_z_at_x(host, p.attach_m[0]) - axis_z_at_x(host, float(centre[0]))
         centre[2] -= drop
     u = np.cross(axis, Z_HAT)
     u = u / np.linalg.norm(u) if np.linalg.norm(u) > 1e-9 else np.eye(3)[1]
-    v = np.cross(axis, u)
-    base = Internal(
+    return Internal(
         name=f"mount_{p.name}",
         item="mount",
         owner=p.name,
@@ -82,47 +82,83 @@ def _mount(design: Design, p: Propulsor) -> Internal:
         shape="disc",
         centre_m=_vec(centre),
         size_m=(t, 0.0, 0.0),
-        axes=(_vec(axis), _vec(u), _vec(v)),
+        axes=(_vec(axis), _vec(u), _vec(np.cross(axis, u))),
         hole_d_m=number("mount_bolt_d_m"),
         within=(p.host,),
     )
 
-    def sized(r_m: float) -> Internal:
-        return base.model_copy(update={"size_m": (t, r_m, 0.0)})
+
+def _mount_radius(design: Design, p: Propulsor, base: Internal, full_m: float) -> float:
+    """Largest radius (up to full_m) whose rim stays in the host; 0 when the centre is outside."""
 
     def fits(r_m: float) -> bool:
-        return bool(inside_part(design, p.host, probe_points(sized(r_m))).all())
+        sized = base.model_copy(update={"size_m": (base.size_m[0], r_m, 0.0)})
+        return bool(inside_part(design, p.host, probe_points(sized)).all())
 
+    return _outermost(fits, full_m)
+
+
+def _mount_inset(design: Design, p: Propulsor, full_m: float) -> float:
+    """Distance the firewall sits inside the host end: the standard inset, and on a flat-panel
+    host that closes to a point or an edge, far enough forward for a plate of at least
+    mount_plate_min_frac of the full radius (the pointed tail is cut by the plate, not the other
+    way round). Without such a place, the one with the widest plate."""
+    inset = number("mount_plate_inset_m")
+    host = next((b for b in design.bodies if b.name == p.host), None)
+    if host is None or host.facets is None:
+        return inset
+    steps = int(number("mount_slide_steps"))
+    reach = number("mount_slide_body_frac") * host.length_m
+    best_inset, best_radius = inset, -1.0
+    for k in range(steps + 1):
+        trial = inset + reach * k / steps
+        radius = _mount_radius(design, p, _mount_base(design, p, trial), full_m)
+        if radius >= number("mount_plate_min_frac") * full_m:
+            return trial
+        if radius > best_radius:
+            best_inset, best_radius = trial, radius
+    return best_inset
+
+
+def _mount(design: Design, p: Propulsor) -> Internal:
+    """Firewall disc inside the host end with the motor bolt circle; its radius is the largest (up
+    to mount_plate_radius_frac x D) whose rim stays in the host."""
     full = number("mount_plate_radius_frac") * p.diameter_m
+    base = _mount_base(design, p, _mount_inset(design, p, full))
     # a centre outside the host keeps the full plate so containment reports it (and CAD works)
-    radius = _outermost(fits, full) or full
+    radius = _mount_radius(design, p, base, full) or full
+    centre = np.asarray(base.centre_m)
+    _, u, v = (np.asarray(a) for a in base.axes)
     n = int(number("mount_bolt_count"))
     rb = number("mount_bolt_circle_frac") * radius
     angles = 2 * np.pi * np.arange(n) / n + np.pi / n
     holes = [centre + rb * (np.cos(a) * u + np.sin(a) * v) for a in angles]
-    return sized(radius).model_copy(update={"holes_m": tuple(map(_vec, holes))})
+    sized = base.model_copy(update={"size_m": (base.size_m[0], radius, 0.0)})
+    return sized.model_copy(update={"holes_m": tuple(map(_vec, holes))})
 
 
 def _host_height(design: Design, host: str) -> float:
     """Upper bound on the host's height [m] (bisection reach)."""
     for b in design.bodies:
         if b.name == host:
-            return 2.0 * b.half_height_m
+            return vertical_extent_m(b.facets) if b.facets is not None else 2.0 * b.half_height_m
     s = next(x for x in design.surfaces if x.name == host)
     return max(sec.chord_m for sec in s.sections)
 
 
-def _hatch_footprint_m(design: Design, box: Box) -> tuple[float, float, float, float]:
+def _hatch_footprint_m(design: Design, box: Box, top_m: float) -> tuple[float, float, float, float]:
     """Hatch centre x, y and length, width [m]: the bay footprint, on a flat-panel body cut back
-    to the edges of the roof panel that covers most of it (the hatch is one panel's cut-out)."""
+    to the edges of the part of the roof panel that covers most of it and lies above the hatch
+    (its top face at top_m + half a hatch thickness; the planes are exact, so no sag clearance)."""
     body = next((b for b in design.bodies if b.name == box.host), None)
     x, y = box.centre_m[0], box.centre_m[1]
     length, width = box.size_m[0], box.size_m[1]
     if body is None or body.facets is None:
         return x, y, length, width
     nose = np.asarray(body.nose_m)
+    z_m = top_m + number("hatch_thickness_m") / 2 - nose[2]  # flat panels: no meshed-skin sag
     (cx, cy), (hx, hy) = hatch_rect_xy(
-        body.facets, (x - nose[0], y - nose[1]), (length / 2, width / 2)
+        body.facets, (x - nose[0], y - nose[1]), (length / 2, width / 2), z_m
     )
     return cx + float(nose[0]), cy + float(nose[1]), 2.0 * hx, 2.0 * hy
 
@@ -143,7 +179,7 @@ def _bay_and_hatch(design: Design, box: Box) -> list[Internal]:
     )
     t = number("hatch_thickness_m")
     top = box.centre_m[2] + box.size_m[2] / 2 + t / 2
-    cx, cy, length, width = _hatch_footprint_m(design, box)
+    cx, cy, length, width = _hatch_footprint_m(design, box, top)
     base = bay.model_copy(
         update={
             "centre_m": (cx, cy, top),

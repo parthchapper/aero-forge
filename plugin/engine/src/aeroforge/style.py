@@ -7,6 +7,7 @@ from math import atan2, degrees, hypot
 import numpy as np
 
 from aeroforge.constants import load_table, number
+from aeroforge.facet_metrics import largest_section_half_extents_m
 from aeroforge.models import Body, Design, Surface
 
 FEATURES = (
@@ -79,9 +80,13 @@ def _instances(mirrored: bool) -> int:
 
 
 def _body_points(b: Body) -> np.ndarray:
-    """Bounding-box corners of a body, both instances when mirrored [m]."""
+    """Bounding-box corners of a body, both instances when mirrored [m]; a flat-panel body gives
+    its own vertices (the tail upsweep is part of its height)."""
     x0, y0, z0 = b.nose_m
     ys = [y0, -y0] if b.mirrored else [y0]
+    if b.facets is not None:
+        v = np.asarray(b.facets.vertices_m) + np.asarray(b.nose_m)
+        return np.vstack([v] + ([v * np.array([1.0, -1.0, 1.0])] if b.mirrored else []))
     return np.array(
         [
             (x, y + sy * b.half_width_m, z0 + sz * b.half_height_m)
@@ -123,7 +128,12 @@ def _body_terms(d: Design) -> tuple[float, float]:
     if not centre:
         return 0.0, 1.0
     b = centre[0]
-    return b.length_m / (2.0 * float(np.sqrt(b.half_width_m * b.half_height_m))), 0.0
+    half_w, half_h = (
+        largest_section_half_extents_m(b.facets)
+        if b.facets is not None
+        else (b.half_width_m, b.half_height_m)
+    )
+    return b.length_m / (2.0 * float(np.sqrt(half_w * half_h))), 0.0
 
 
 def _root_mid_x(s: Surface) -> float:
