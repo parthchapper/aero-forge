@@ -102,19 +102,25 @@ def flat_outline_mm(p: Panel) -> np.ndarray:
 def _face_svg(p: Panel, at: np.ndarray, font: float) -> str:
     """One <g> with the outline, the face number and a rotated length label on every edge."""
     flat = flat_outline_mm(p) + at
+    stroke = number("panels_stroke_mm")
+    number_scale, offset_scale = (
+        number("panels_number_font_scale"),
+        number("panels_label_offset_scale"),
+    )
     mid = flat.mean(axis=0)
     pts = " ".join(f"{x:.2f},{y:.2f}" for x, y in flat)
     number_text = p.id.rsplit("-", 1)[1]
     out = [
         f'<g id="{p.id}"><title>{p.id} {p.area_m2 * 1e4:.1f} cm2</title>',
-        f'<polygon points="{pts}" fill="none" stroke="black" stroke-width="0.4"/>',
-        f'<text x="{mid[0]:.2f}" y="{mid[1]:.2f}" font-size="{font * 1.5:.2f}" '
+        f'<polygon points="{pts}" fill="none" stroke="black" stroke-width="{stroke:.2f}"/>',
+        f'<text x="{mid[0]:.2f}" y="{mid[1]:.2f}" font-size="{font * number_scale:.2f}" '
         f'text-anchor="middle">{number_text}</text>',
     ]
     for i, length in enumerate(p.edge_lengths_m):
         a, b = flat[i], flat[(i + 1) % len(flat)]
         inward = mid - (a + b) / 2
-        m = (a + b) / 2 + font * 1.1 * inward / max(float(np.linalg.norm(inward)), 1e-9)
+        tiny = number("facet_geom_tol_m")
+        m = (a + b) / 2 + font * offset_scale * inward / max(float(np.linalg.norm(inward)), tiny)
         angle = float(np.degrees(np.arctan2(b[1] - a[1], b[0] - a[0])))
         if abs(angle) > 90.0:  # keep the text upright
             angle += 180.0 if angle < 0.0 else -180.0
@@ -134,7 +140,7 @@ def panels_svg(panels: list[Panel]) -> str:
     stock = (number("panels_stock_width_mm"), number("panels_stock_height_mm"))
     sizes = [(float(w), float(h)) for w, h in (flat_outline_mm(p).max(axis=0) for p in panels)]
     spots, pages = pack_shelves(sizes, stock, gap)
-    title_h = font * 2.0
+    title_h = font * number("panels_title_height_font_scale")
     top, tops = 0.0, []
     for page in pages:
         tops.append(top)
@@ -147,7 +153,8 @@ def panels_svg(panels: list[Panel]) -> str:
             f'<g id="page-{n + 1}"><text x="0" y="{y0 + font:.2f}" font-size="{font:.2f}">'
             f"Sheet {n + 1} of {len(pages)}: {page.width_mm:.0f} x {page.height_mm:.0f} mm"
             f'{note}</text><rect x="0" y="{y0 + title_h:.2f}" width="{page.width_mm:.2f}" '
-            f'height="{page.height_mm:.2f}" fill="none" stroke="gray" stroke-width="0.4"/></g>'
+            f'height="{page.height_mm:.2f}" fill="none" stroke="gray" '
+            f'stroke-width="{number("panels_stroke_mm"):.2f}"/></g>'
         )
     for p, spot in zip(panels, spots, strict=True):
         at = np.array([spot.x_mm, tops[spot.page] + title_h + spot.y_mm])

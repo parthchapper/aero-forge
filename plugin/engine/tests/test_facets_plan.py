@@ -13,7 +13,7 @@ from aeroforge import facet_query as q
 from aeroforge import facets as f
 from aeroforge.areas import areas
 from aeroforge.brief import brief_requirements
-from aeroforge.facet_ends import end_panel_count
+from aeroforge.facet_ends import FacetError, end_panel_count
 from aeroforge.genetable import gene_table, genome_length
 from aeroforge.genome import decode
 from aeroforge.models import BodyShape, Design, Polyhedron
@@ -46,6 +46,19 @@ def _cell_hull_volume(poly: Polyhedron) -> float:
     return float(
         sum(ConvexHull(v[(v[:, 0] >= lo) & (v[:, 0] <= hi)]).volume for lo, hi in pairwise(layers))
     )
+
+
+def test_the_runtime_invariant_check_refuses_a_twisted_or_open_body() -> None:
+    sh = BodyShape(style="faceted", sides=6, stations=3)
+    poly = f.facet_body(sh, 1.3, (0.09, 0.07))
+    q.check_invariants(poly, 1.3)
+    v = [list(p) for p in poly.vertices_m]
+    v[1][2] += 1e-3  # lift one corner out of its face planes
+    twisted = poly.model_copy(update={"vertices_m": tuple(tuple(p) for p in v)})
+    with pytest.raises(FacetError):
+        q.check_invariants(twisted, 1.3)
+    with pytest.raises(FacetError):
+        q.check_invariants(poly.model_copy(update={"faces": poly.faces[:-1]}), 1.3)
 
 
 @pytest.mark.parametrize("upsweep_deg", UPSWEEPS_DEG)

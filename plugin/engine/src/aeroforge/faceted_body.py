@@ -1,6 +1,7 @@
 """Body models for the layout: the tail-end size both body kinds share and the flat-panel body."""
 
 from aeroforge.constants import number
+from aeroforge.facet_query import check_invariants
 from aeroforge.facets import facet_body
 from aeroforge.models import Body, Family
 
@@ -16,6 +17,8 @@ def faceted_body(
     """Body of flat panels; its smooth-law fields give the same extent and envelope (widest
     station at nose_frac, boat-tail after it) to consumers that are not facet-aware yet."""
     m = fam.shape.max_section_x_frac
+    poly = facet_body(fam.shape, length_m, axes_m, upsweep_deg)
+    check_invariants(poly, length_m)
     return Body(
         name=name,
         mirrored=False,
@@ -28,5 +31,5 @@ def faceted_body(
         tail_frac=1.0 - m,
         tail_radius_frac=tail_radius_frac(fam),
         tail_upsweep_deg=upsweep_deg,
-        facets=facet_body(fam.shape, length_m, axes_m, upsweep_deg),
+        facets=poly,
     )

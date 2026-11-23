@@ -18,13 +18,9 @@ def _in_convex(poly_xy: np.ndarray, pts: np.ndarray) -> np.ndarray:
     return np.all(side >= -tol, axis=1) | np.all(side <= tol, axis=1)
 
 
-def roof_panels_xy(poly: Polyhedron) -> list[np.ndarray]:
-    """Outlines (x, y) [m, body frame] of the upward-facing faces: the roof panels."""
-    return [outline for outline, _ in _roof_panels(poly)]
-
-
-def _roof_panels(poly: Polyhedron) -> list[tuple[np.ndarray, np.ndarray]]:
-    """(outline xy, unit normal) of the upward-facing faces."""
+def roof_panels(poly: Polyhedron) -> list[tuple[np.ndarray, np.ndarray]]:
+    """(outline xy [m, body frame], plane (n_x, n_y, n_z, d)) of the upward-facing faces: the roof
+    panels; the plane is n . p = d with n the unit outward normal."""
     v = np.asarray(poly.vertices_m)
     tol = number("facet_geom_tol_m")
     out = []
@@ -114,7 +110,7 @@ def hatch_rect_xy(
     lo = np.asarray(centre_xy) - np.asarray(half_xy)
     hi = np.asarray(centre_xy) + np.asarray(half_xy)
     best, best_key = None, (False, False, 0.0)
-    for outline, plane in _roof_panels(poly):
+    for outline, plane in roof_panels(poly):
         panel = outline if z_m is None else _clip_below_plane(outline, plane, z_m)
         found = _hatch_on_panel(panel, lo, hi) if len(panel) >= 3 else None
         if found is None:

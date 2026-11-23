@@ -234,7 +234,7 @@ def test_a_hatch_on_a_flat_panel_body_lies_inside_one_roof_panel(faceted: list[D
         corners = np.array(
             [[c[0] + a * size[0] / 2, c[1] + b * size[1] / 2] for a in (-1, 1) for b in (-1, 1)]
         )
-        panels = fh.roof_panels_xy(body.facets)
+        panels = [outline for outline, _ in fh.roof_panels(body.facets)]
         assert any(fh._in_convex(p, corners).all() for p in panels)
         checked += 1
     assert checked > 0

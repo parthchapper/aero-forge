@@ -258,6 +258,10 @@ panels_stock_width_mm: {value: 1200.0, unit: mm, source: "U2 assumed stock sheet
 panels_stock_height_mm: {value: 800.0, unit: mm, source: "U2 assumed stock sheet height, see panels_stock_width_mm"}
 panels_gap_mm: {value: 12.0, unit: mm, source: "U2: gap between faces on the panels sheet"}
 panels_font_mm: {value: 4.0, unit: mm, source: "U2: label height on the panels sheet"}
+panels_stroke_mm: {value: 0.4, unit: mm, source: "U2 line width of the sheet outlines and page frames in panels.svg"}
+panels_number_font_scale: {value: 1.5, unit: "-", source: "U2 sheet number text size / edge label text size"}
+panels_label_offset_scale: {value: 1.1, unit: "-", source: "U2 distance of an edge label inside its edge, in label heights"}
+panels_title_height_font_scale: {value: 2.0, unit: "-", source: "U2 height of a page title band in label heights"}
 hatch_panel_min_frac: {value: 0.25, unit: "-", source: "U2: smallest share of the bay footprint a hatch on a flat-panel body shrinks to when the roof panel over the bay is narrower than the bay"}
 hatch_panel_floor_frac: {value: 0.02, unit: "-", source: "U2: smallest share of the bay footprint a hatch shrinks to when no roof panel holds a larger one (a sliver of panel at a tapering end); hatch_panel_min_frac is the share below which the hatch is called small"}
 hatch_panel_edge_margin_frac: {value: 1.0e-4, unit: "-", source: "U2: a hatch on a flat panel stops this share of its size short of the panel edge, so its corners are inside for every tolerance of the edge tests"}

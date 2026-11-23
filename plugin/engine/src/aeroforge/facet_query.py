@@ -103,6 +103,15 @@ def planarity_m(poly: Polyhedron) -> float:
     return worst
 
 
+def check_invariants(poly: Polyhedron, length_m: float) -> None:
+    """FacetError unless every face is planar to facet_geom_tol_m x length_m and the solid is
+    closed (SPEC §5 invariants 11 and 12, enforced for every decoded flat-panel body)."""
+    if planarity_m(poly) > number("facet_geom_tol_m") * length_m:
+        raise FacetError("a face of the flat-panel body is not planar")
+    if not is_closed(poly):
+        raise FacetError("the flat-panel body is not a closed solid")
+
+
 def is_closed(poly: Polyhedron) -> bool:
     """Every edge shared by exactly two faces and V - E + F = 2 (SPEC §5 invariant 12)."""
     edges: dict[tuple[int, int], int] = {}
