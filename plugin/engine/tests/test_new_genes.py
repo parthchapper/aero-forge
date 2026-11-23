@@ -351,3 +351,27 @@ def test_the_wing_root_layout_holds_the_boxes_in_the_wing_when_they_fit_and_in_t
         root = d.surfaces[0].sections[0]
         assert all(root.le_m[0] <= b.centre_m[0] <= root.le_m[0] + root.chord_m for b in d.boxes)
         assert all(b.host == "surface0" for b in d.boxes)
+
+
+FACETED_TWIN_GENOMES = 400
+
+
+def test_the_wing_root_layout_holds_the_boxes_in_the_wing_or_the_body_with_faceted_bodies(
+    genomes: np.ndarray, brief: Requirements, req: Requirements
+) -> None:
+    """The same rule on the current random population with every body flat-panel."""
+    style = [g.name for g in gene_table()].index("body_style")
+    rows = []
+    for g in genomes[:FACETED_TWIN_GENOMES]:
+        if unpack(g).pick["box_layout"] == "wing_root":
+            faceted = g.copy()
+            faceted[style] = 0.9
+            rows.append(decode(faceted, brief))
+    in_wing = [d for d in rows if d.boxes[0].host == "surface0"]
+    in_body = [d for d in rows if d.boxes[0].host == "body0"]
+    assert in_body, "a wing too thin for the boxes must fall back to the body"
+    assert all(b.facets is not None for d in in_body for b in d.bodies if b.name == "body0")
+    assert bool(in_wing) == (brief != req)
+    for d in in_wing:
+        root = d.surfaces[0].sections[0]
+        assert all(root.le_m[0] <= b.centre_m[0] <= root.le_m[0] + root.chord_m for b in d.boxes)
