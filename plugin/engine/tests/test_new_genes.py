@@ -336,8 +336,14 @@ def test_a_packed_body_holds_every_box_inside_its_skin(layout: str, req: Require
 
 
 def _check_the_wing_root_layout(
-    genomes: np.ndarray, decoded: list[Design], brief: Requirements, req: Requirements
+    genomes: np.ndarray,
+    decoded: list[Design],
+    brief: Requirements,
+    req: Requirements,
+    stub_may_use_the_wing: bool = False,
 ) -> None:
+    """stub_may_use_the_wing: decision A1 lets a stub design hold its boxes in the wing, so only
+    the small-boxes brief is required to; the 0.3 population never did on stub (strict)."""
     rows = [
         d
         for g, d in zip(genomes, decoded, strict=False)
@@ -346,7 +352,10 @@ def _check_the_wing_root_layout(
     in_wing = [d for d in rows if d.boxes[0].host == "surface0"]
     in_body = [d for d in rows if d.boxes[0].host == "body0"]
     assert in_body, "a wing too thin for the boxes must fall back to the body"
-    assert bool(in_wing) == (brief != req)  # only the small-boxes brief fits a wing
+    if brief != req:
+        assert in_wing  # the small-boxes brief fits a wing
+    elif not stub_may_use_the_wing:
+        assert not in_wing
     for d in in_wing:  # the boxes sit inside surface0's root chord
         root = d.surfaces[0].sections[0]
         assert all(root.le_m[0] <= b.centre_m[0] <= root.le_m[0] + root.chord_m for b in d.boxes)
@@ -362,8 +371,9 @@ def test_the_wing_root_layout_holds_the_boxes_in_the_wing_when_they_fit_and_in_t
 def test_the_wing_root_layout_on_the_99_gene_population(
     genomes: np.ndarray, decoded: list[Design], brief: Requirements, req: Requirements
 ) -> None:
-    """The same assertions on today's random draw (the one above keeps the 0.3 draw)."""
-    _check_the_wing_root_layout(genomes, decoded, brief, req)
+    """The same assertions on today's random draw (the one above keeps the 0.3 draw), with the
+    stub brief allowed to ride in the wing (decision A1)."""
+    _check_the_wing_root_layout(genomes, decoded, brief, req, stub_may_use_the_wing=True)
 
 
 FACETED_TWIN_GENOMES = 400
@@ -384,7 +394,8 @@ def test_the_wing_root_layout_holds_the_boxes_in_the_wing_or_the_body_with_facet
     in_body = [d for d in rows if d.boxes[0].host == "body0"]
     assert in_body, "a wing too thin for the boxes must fall back to the body"
     assert all(b.facets is not None for d in in_body for b in d.bodies if b.name == "body0")
-    assert bool(in_wing) == (brief != req)
+    if brief != req:
+        assert in_wing  # decision A1: on stub the boxes may ride in the wing, so no assertion
     for d in in_wing:
         root = d.surfaces[0].sections[0]
         assert all(root.le_m[0] <= b.centre_m[0] <= root.le_m[0] + root.chord_m for b in d.boxes)
