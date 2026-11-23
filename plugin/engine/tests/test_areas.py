@@ -9,10 +9,12 @@ import numpy as np
 import pytest
 
 from aeroforge.areas import areas, body_top_share, frontal_area_m2, top_area_m2
+from aeroforge.facet_query import inside_faceted
 from aeroforge.models import Body, Design, Section, Surface
 from aeroforge.shapes import body_radius_frac
 
 TOL = 0.02  # the plan's accuracy for closed-form shapes
+FACETED_SECTIONS = 400  # sections along a flat-panel body (a rising tail shears them)
 RASTER_TOL = 0.01  # measured gaps vs the grids: <= 0.08 % (6 top views, 4 frontal views)
 CHORD_M, HALF_SPAN_M, TC = 0.2, 0.6, 0.1
 RASTER_CELL_M = 0.002
@@ -222,6 +224,21 @@ def _front_bands(d: Design) -> np.ndarray:
     return np.array(quads)
 
 
+def _add_faceted_shadow(
+    inside: np.ndarray, ys: np.ndarray, zs: np.ndarray, b: Body, y0: float
+) -> None:
+    """Grid cells shadowed by a flat-panel body: a (y, z) cell is in when some section of the solid
+    along x holds it, tested point by point with the body's own containment."""
+    assert b.facets is not None
+    v = np.asarray(b.facets.vertices_m)
+    j0, j1 = np.searchsorted(ys, [y0 - b.half_width_m, y0 + b.half_width_m])
+    i0, i1 = np.searchsorted(zs, [b.nose_m[2] + v[:, 2].min(), b.nose_m[2] + v[:, 2].max()])
+    sy, sz = np.meshgrid(ys[j0:j1], zs[i0:i1])
+    for x in np.linspace(0.0, b.length_m, FACETED_SECTIONS):
+        pts = np.column_stack([np.full(sy.size, x), (sy - y0).ravel(), (sz - b.nose_m[2]).ravel()])
+        inside[i0:i1, j0:j1] |= inside_faceted(b.facets, pts).reshape(sy.shape)
+
+
 def _raster_front(d: Design) -> float:
     """Brute-force frontal area: a (y, z) grid; bands by point-in-quad, bodies by testing the
     super-ellipse of 200 sections along x."""
@@ -234,6 +251,9 @@ def _raster_front(d: Design) -> float:
         for y0 in (b.nose_m[1], -b.nose_m[1]):
             corners.append([[y0 - b.half_width_m, b.nose_m[2] - b.half_height_m]])
             corners.append([[y0 + b.half_width_m, b.nose_m[2] + b.half_height_m + reach]])
+            if b.facets is not None:  # the polyhedron's own extent (its vertices)
+                z = np.asarray(b.facets.vertices_m)[:, 2] + b.nose_m[2]
+                corners.append([[y0 - b.half_width_m, z.min()], [y0 + b.half_width_m, z.max()]])
     box = np.vstack(corners)
     lo, hi = box.min(axis=0) - WINDOW_PAD_M, box.max(axis=0) + WINDOW_PAD_M
     ys = np.arange(lo[0], hi[0], RASTER_FRONT_CELL_M) + RASTER_FRONT_CELL_M / 2
@@ -242,6 +262,9 @@ def _raster_front(d: Design) -> float:
     inside = _in_quads(y, z, bands)
     for b in d.bodies:
         for y0 in [b.nose_m[1], -b.nose_m[1]] if b.mirrored else [b.nose_m[1]]:
+            if b.facets is not None:
+                _add_faceted_shadow(inside, ys, zs, b, y0)
+                continue
             j0, j1 = np.searchsorted(ys, [y0 - b.half_width_m, y0 + b.half_width_m])
             # the tail cone's axis rises linearly at tail_upsweep_deg (written out here, not
             # shapes.body_axis_z), so the section window reaches up by the full rise

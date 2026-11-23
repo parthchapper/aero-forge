@@ -8,6 +8,7 @@ import trimesh
 
 from aeroforge.airfoil import naca_outline
 from aeroforge.constants import number
+from aeroforge.facet_query import volume_m3
 from aeroforge.genome import decode
 from aeroforge.geom import GeometryError, build_parts
 from aeroforge.mesh import PartMesh, export_mesh, glb_bytes, tessellate, write_stls
@@ -123,7 +124,10 @@ def _surface_volume(s: Surface) -> float:
 
 
 def _body_volume(b: Body) -> float:
-    """Super-ellipse section area 4ab G(1+1/n)^2 / G(1+2/n) integrated along the radius law."""
+    """Super-ellipse section area 4ab G(1+1/n)^2 / G(1+2/n) integrated along the radius law; a
+    flat-panel body's volume is that of its polyhedron (divergence theorem over its faces)."""
+    if b.facets is not None:
+        return volume_m3(b.facets)
     t = np.linspace(0.0, 1.0, RADIUS_SAMPLES)
     shape = 4 * math.gamma(1 + 1 / b.section_exp) ** 2 / math.gamma(1 + 2 / b.section_exp)
     radius_sq = float(np.trapezoid(body_radius_frac(b, t) ** 2, t))
