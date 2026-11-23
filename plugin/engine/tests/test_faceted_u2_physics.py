@@ -19,7 +19,7 @@ from aeroforge.facet_metrics import (
 from aeroforge.facet_pieces import pieces
 from aeroforge.genetable import gene_table, genome_length, pin_choice
 from aeroforge.genome import decode, random_genomes
-from aeroforge.geom import faceted_body_solid
+from aeroforge.geom import faceted_body_solid, prop_solid
 from aeroforge.hardpoints import containment_failures, hardpoints
 from aeroforge.internals import Internal
 from aeroforge.layout import host_end
@@ -431,3 +431,17 @@ def test_internals_misfits_stay_under_one_percent_over_four_hundred_genomes(
 
 def test_genome_length_is_unchanged_by_u2() -> None:
     assert genome_length() == 99
+
+
+def test_a_long_slightly_tilted_shaft_fuses_with_its_blades_into_one_solid() -> None:
+    """Gallery genome 45 (seed 1, flat-panel): a firewall 0.56 m inside the tail left the shaft
+    ending on the blade plane and the fuse gave two solids."""
+    req = brief_requirements("stub")
+    g = pin_choice(random_genomes(np.random.default_rng(1), 50), "body_style", "faceted")[45]
+    design = decode(g, req)
+    long_shafts = 0
+    for p in design.propulsors:
+        solid = prop_solid(p)
+        assert len(solid.Solids()) == 1
+        long_shafts += np.linalg.norm(np.subtract(p.hub_m, p.attach_m)) > 0.5
+    assert long_shafts > 0

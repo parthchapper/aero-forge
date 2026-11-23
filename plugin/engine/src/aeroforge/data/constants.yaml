@@ -74,6 +74,7 @@ spinner_radius_frac: {value: 0.09, unit: "-", source: "assumed spinner radius / 
 spinner_length_frac: {value: 0.14, unit: "-", source: "assumed spinner length / diameter"}
 shaft_radius_frac: {value: 0.025, unit: "-", source: "assumed shaft radius / diameter"}
 shaft_embed_frac: {value: 0.1, unit: "-", source: "assumed shaft length buried in the host / diameter"}
+shaft_hub_overlap_frac: {value: 0.05, unit: "-", source: "U2 assumed: the shaft runs this share of the diameter past the hub into the spinner (the cone is wider than the shaft up to about 0.1 D) so the fuse with the blades is one solid"}
 blade_chord_frac: {value: 0.09, unit: "-", source: "assumed blade root chord / diameter"}
 blade_tip_chord_frac: {value: 0.5, unit: "-", source: "assumed blade tip / root chord"}
 blade_thickness_frac: {value: 0.15, unit: "-", source: "assumed blade thickness / blade chord"}

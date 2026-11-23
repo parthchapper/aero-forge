@@ -111,9 +111,10 @@ def prop_solid(prop: Propulsor) -> cq.Solid:
         axis = shaft_vec.normalized()
         embed = number("shaft_embed_frac") * d
         start = cq.Vector(*prop.attach_m) - axis * embed
-        shaft = cq.Solid.makeCylinder(
-            number("shaft_radius_frac") * d, shaft_vec.Length + embed, pnt=start, dir=axis
-        )
+        # it ends inside the spinner (past the hub), not on the blade plane: a shaft ending exactly
+        # there fused to two solids on a long, slightly tilted shaft (U2 audit, firewall inside)
+        reach = shaft_vec.Length + embed + number("shaft_hub_overlap_frac") * d
+        shaft = cq.Solid.makeCylinder(number("shaft_radius_frac") * d, reach, pnt=start, dir=axis)
         shape = shape.fuse(shaft)
     return checked_solid(prop.name, shape.clean())
 
