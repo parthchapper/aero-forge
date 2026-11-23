@@ -13,6 +13,7 @@ import numpy as np
 from aeroforge.constants import number
 from aeroforge.facet_pieces import pieces
 from aeroforge.models import Body, Design
+from aeroforge.panels_layout import pack_shelves
 
 CSV_HEADER = "id,part,count,area_m2,edge_lengths_m,neighbour_ids,bevel_deg"
 PANELS_DIR, CSV_FILE, SVG_FILE = "panels", "panels.csv", "panels.svg"
@@ -126,22 +127,32 @@ def _face_svg(p: Panel, at: np.ndarray, font: float) -> str:
 
 
 def panels_svg(panels: list[Panel]) -> str:
-    """panels.svg text: every face laid flat in true size [mm], packed in rows, numbered, each
-    edge dimensioned (length in mm)."""
-    width, gap, font = (
-        number("panels_sheet_width_mm"),
-        number("panels_gap_mm"),
-        number("panels_font_mm"),
-    )
-    x = y = row_h = 0.0
+    """panels.svg text: every sheet laid flat in true size [mm], numbered, each edge dimensioned
+    (length in mm), packed onto stock-sized pages stacked top to bottom; a sheet bigger than the
+    stock has a page of its own, labelled oversize. The viewBox holds every page."""
+    gap, font = number("panels_gap_mm"), number("panels_font_mm")
+    stock = (number("panels_stock_width_mm"), number("panels_stock_height_mm"))
+    sizes = [(float(w), float(h)) for w, h in (flat_outline_mm(p).max(axis=0) for p in panels)]
+    spots, pages = pack_shelves(sizes, stock, gap)
+    title_h = font * 2.0
+    top, tops = 0.0, []
+    for page in pages:
+        tops.append(top)
+        top += title_h + page.height_mm + gap
+    width = max([stock[0], *(pg.width_mm for pg in pages)])
     groups = []
-    for p in panels:
-        w, h = flat_outline_mm(p).max(axis=0)
-        if x > 0.0 and x + w > width:
-            x, y, row_h = 0.0, y + row_h + gap, 0.0
-        groups.append(_face_svg(p, np.array([x, y]), font))
-        x, row_h = x + w + gap, max(row_h, h)
-    total = max(y + row_h, 1.0)
+    for n, (page, y0) in enumerate(zip(pages, tops, strict=True)):
+        note = " OVERSIZE: larger than the stock sheet" if page.oversize else ""
+        groups.append(
+            f'<g id="page-{n + 1}"><text x="0" y="{y0 + font:.2f}" font-size="{font:.2f}">'
+            f"Sheet {n + 1} of {len(pages)}: {page.width_mm:.0f} x {page.height_mm:.0f} mm"
+            f'{note}</text><rect x="0" y="{y0 + title_h:.2f}" width="{page.width_mm:.2f}" '
+            f'height="{page.height_mm:.2f}" fill="none" stroke="gray" stroke-width="0.4"/></g>'
+        )
+    for p, spot in zip(panels, spots, strict=True):
+        at = np.array([spot.x_mm, tops[spot.page] + title_h + spot.y_mm])
+        groups.append(_face_svg(p, at, font))
+    total = max(top, 1.0)
     head = (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width:.0f}mm" height="{total:.0f}mm" '
         f'viewBox="0 0 {width:.0f} {total:.0f}" font-family="sans-serif">'

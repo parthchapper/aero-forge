@@ -254,7 +254,8 @@ report_fidelity: {value: "Conceptual design. Tier-2 aerodynamics are a vortex-la
 equiv_section_exp_max: {value: 40.0, unit: "-", source: "U2: largest super-ellipse exponent of the equivalent aero section of a faceted body (a rectangle; the asb area formula is within 0.1 % of the box there)"}
 servo_tray_slide_steps: {value: 12, unit: count, source: "U2: positions tried per root chord when sliding a body-hosted servo tray that does not fit at mid chord (narrow nose or tail of a flat-panel body)"}
 servo_tray_slide_chords: {value: 1.5, unit: "-", source: "U2: farthest a body-hosted servo tray slides from mid chord, in root chords (a longer pushrod)"}
-panels_sheet_width_mm: {value: 900.0, unit: mm, source: "U2: width of the flat-panel layout sheet (panels.svg); faces are packed in rows"}
+panels_stock_width_mm: {value: 1200.0, unit: mm, source: "U2 assumed stock sheet width the cut sheet is paginated to (a 1200 x 800 mm foam board or ply sheet; set it to your stock)"}
+panels_stock_height_mm: {value: 800.0, unit: mm, source: "U2 assumed stock sheet height, see panels_stock_width_mm"}
 panels_gap_mm: {value: 12.0, unit: mm, source: "U2: gap between faces on the panels sheet"}
 panels_font_mm: {value: 4.0, unit: mm, source: "U2: label height on the panels sheet"}
 hatch_panel_min_frac: {value: 0.25, unit: "-", source: "U2: smallest share of the bay footprint a hatch on a flat-panel body shrinks to when the roof panel over the bay is narrower than the bay"}
