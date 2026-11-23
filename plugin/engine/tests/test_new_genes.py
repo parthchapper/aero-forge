@@ -335,12 +335,12 @@ def test_a_packed_body_holds_every_box_inside_its_skin(layout: str, req: Require
     assert len(ys if layout == "side_by_side" else zs) == len(d.boxes)
 
 
-def test_the_wing_root_layout_holds_the_boxes_in_the_wing_when_they_fit_and_in_the_body_else(
-    genomes_0_3: np.ndarray, decoded_0_3: list[Design], brief: Requirements, req: Requirements
+def _check_the_wing_root_layout(
+    genomes: np.ndarray, decoded: list[Design], brief: Requirements, req: Requirements
 ) -> None:
     rows = [
         d
-        for g, d in zip(genomes_0_3, decoded_0_3, strict=False)
+        for g, d in zip(genomes, decoded, strict=False)
         if unpack(g).pick["box_layout"] == "wing_root"
     ]
     in_wing = [d for d in rows if d.boxes[0].host == "surface0"]
@@ -351,6 +351,19 @@ def test_the_wing_root_layout_holds_the_boxes_in_the_wing_when_they_fit_and_in_t
         root = d.surfaces[0].sections[0]
         assert all(root.le_m[0] <= b.centre_m[0] <= root.le_m[0] + root.chord_m for b in d.boxes)
         assert all(b.host == "surface0" for b in d.boxes)
+
+
+def test_the_wing_root_layout_holds_the_boxes_in_the_wing_when_they_fit_and_in_the_body_else(
+    genomes_0_3: np.ndarray, decoded_0_3: list[Design], brief: Requirements, req: Requirements
+) -> None:
+    _check_the_wing_root_layout(genomes_0_3, decoded_0_3, brief, req)
+
+
+def test_the_wing_root_layout_on_the_99_gene_population(
+    genomes: np.ndarray, decoded: list[Design], brief: Requirements, req: Requirements
+) -> None:
+    """The same assertions on today's random draw (the one above keeps the 0.3 draw)."""
+    _check_the_wing_root_layout(genomes, decoded, brief, req)
 
 
 FACETED_TWIN_GENOMES = 400

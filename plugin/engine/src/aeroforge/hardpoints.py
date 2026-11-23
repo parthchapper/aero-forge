@@ -8,6 +8,7 @@ from collections.abc import Callable
 import numpy as np
 
 from aeroforge.constants import number, numbers
+from aeroforge.facet_query import hatch_rect_xy, slice_section
 from aeroforge.internals import (
     Internal,
     contained,
@@ -15,8 +16,8 @@ from aeroforge.internals import (
     probe_points,
     surface_items,
 )
-from aeroforge.models import Box, Design, Propulsor, Recovery
-from aeroforge.shapes import body_radius_frac
+from aeroforge.models import Body, Box, Design, Propulsor, Recovery
+from aeroforge.shapes import axis_z_at_x, body_radius_frac
 
 Z_HAT = np.array([0.0, 0.0, 1.0])
 
@@ -66,6 +67,10 @@ def _mount(design: Design, p: Propulsor) -> Internal:
     axis = np.eye(3)[0] * (1.0 if p.pusher else -1.0)
     t = number("mount_plate_thickness_m")
     centre = np.asarray(p.attach_m) - axis * (number("mount_plate_inset_m") + t / 2)
+    host = next((b for b in design.bodies if b.name == p.host), None)
+    if host is not None:  # a raised tail axis lies lower at the plate than at the attach point
+        drop = axis_z_at_x(host, p.attach_m[0]) - axis_z_at_x(host, float(centre[0]))
+        centre[2] -= drop
     u = np.cross(axis, Z_HAT)
     u = u / np.linalg.norm(u) if np.linalg.norm(u) > 1e-9 else np.eye(3)[1]
     v = np.cross(axis, u)
@@ -107,6 +112,21 @@ def _host_height(design: Design, host: str) -> float:
     return max(sec.chord_m for sec in s.sections)
 
 
+def _hatch_footprint_m(design: Design, box: Box) -> tuple[float, float, float, float]:
+    """Hatch centre x, y and length, width [m]: the bay footprint, on a flat-panel body cut back
+    to the edges of the roof panel that covers most of it (the hatch is one panel's cut-out)."""
+    body = next((b for b in design.bodies if b.name == box.host), None)
+    x, y = box.centre_m[0], box.centre_m[1]
+    length, width = box.size_m[0], box.size_m[1]
+    if body is None or body.facets is None:
+        return x, y, length, width
+    nose = np.asarray(body.nose_m)
+    (cx, cy), (hx, hy) = hatch_rect_xy(
+        body.facets, (x - nose[0], y - nose[1]), (length / 2, width / 2)
+    )
+    return cx + float(nose[0]), cy + float(nose[1]), 2.0 * hx, 2.0 * hy
+
+
 def _bay_and_hatch(design: Design, box: Box) -> list[Internal]:
     """Open-top frame around the box and a hatch outline in the skin above it."""
     bay = Internal(
@@ -123,16 +143,25 @@ def _bay_and_hatch(design: Design, box: Box) -> list[Internal]:
     )
     t = number("hatch_thickness_m")
     top = box.centre_m[2] + box.size_m[2] / 2 + t / 2
+    cx, cy, length, width = _hatch_footprint_m(design, box)
     base = bay.model_copy(
         update={
-            "centre_m": (box.centre_m[0], box.centre_m[1], top),
-            "size_m": (box.size_m[0], box.size_m[1], t),
+            "centre_m": (cx, cy, top),
+            "size_m": (length, width, t),
             "hollow": "ring",
             "wall_m": number("hatch_rim_m"),
         }
     )
     hatch = _plate(design, f"hatch_{box.name}", "hatch", box.host, base, 1.0)
     return [bay, hatch]
+
+
+def _body_width_m(body: Body, x_m: float) -> float:
+    """Full width [m] of the body's outer mould at world x_m."""
+    if body.facets is not None:
+        return slice_section(body.facets, x_m - body.nose_m[0])[0]
+    r = float(body_radius_frac(body, np.array([(x_m - body.nose_m[0]) / body.length_m]))[0])
+    return 2.0 * r * body.half_width_m
 
 
 def _recovery(design: Design, recovery: Recovery) -> Internal:
@@ -143,8 +172,7 @@ def _recovery(design: Design, recovery: Recovery) -> Internal:
     z = float(np.mean([b.centre_m[2] for b in design.boxes]))
     body = next((b for b in design.bodies if b.name == host), None)
     if body is not None:
-        r = float(body_radius_frac(body, np.array([(x - body.nose_m[0]) / body.length_m]))[0])
-        width = min(width, 2.0 * number("recovery_fill_frac") * r * body.half_width_m)
+        width = min(width, number("recovery_fill_frac") * _body_width_m(body, x))
         z = body.nose_m[2]
     base = Internal(
         name="recovery",

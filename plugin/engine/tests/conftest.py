@@ -16,6 +16,7 @@ from aeroforge.prepare import Prepared, prepare
 from aeroforge.reference import BASELINE, encode, reference_genome
 
 N_PROPERTY_GENOMES = 1000
+N_SMOKE_GENOMES = 50  # the fast suite's share of every 1,000-genome property test (U1, user)
 SMALL_BOXES_GENOMES = 400  # branch coverage (bodyless, wheels); the stub brief carries the 1,000
 PROPERTY_SEED = 20261112
 BALANCED_GENOMES = 6
@@ -32,9 +33,22 @@ def req() -> Requirements:
     return brief_requirements("stub")
 
 
+@pytest.fixture(
+    scope="session",
+    params=[
+        pytest.param(N_SMOKE_GENOMES, id="smoke"),
+        pytest.param(N_PROPERTY_GENOMES, id="full", marks=pytest.mark.slow),
+    ],
+)
+def population(request: pytest.FixtureRequest) -> int:
+    """How many seeded random genomes a property test sees: the first 50 (fast suite) or all
+    1,000 (slow). Same draw, so the smoke rows are the first rows of the full set."""
+    return int(request.param)
+
+
 @pytest.fixture(scope="session")
-def genomes() -> np.ndarray:
-    return random_genomes(np.random.default_rng(PROPERTY_SEED), N_PROPERTY_GENOMES)
+def genomes(population: int) -> np.ndarray:
+    return random_genomes(np.random.default_rng(PROPERTY_SEED), population)
 
 
 LEGACY_GENES = Path(__file__).parent / "fixtures" / "baseline_pre_step10" / "genes_pre_step10.yaml"
@@ -67,11 +81,11 @@ def legacy_genomes() -> np.ndarray:
 
 
 @pytest.fixture(scope="session")
-def genomes_0_3() -> np.ndarray:
+def genomes_0_3(population: int) -> np.ndarray:
     """The 1,000 random genomes the 0.3 table (86 genes) drew for the property seed, re-encoded
     into today's table (the U1 genes at their defaults): the population calibrated 0.3 tests
     were tuned on, which the wider table would otherwise replace."""
-    return legacy_random_genomes(PROPERTY_SEED, N_PROPERTY_GENOMES, GENES_0_3)
+    return legacy_random_genomes(PROPERTY_SEED, population, GENES_0_3)
 
 
 @pytest.fixture(scope="session")

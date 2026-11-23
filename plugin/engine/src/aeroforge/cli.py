@@ -17,13 +17,14 @@ from aeroforge.constants import number
 from aeroforge.deliver_cli import build_cmd, render_cmd, report_cmd
 from aeroforge.demo_cli import demo_cmd
 from aeroforge.gallery import Tile, gallery_html
+from aeroforge.genetable import pin_choice
 from aeroforge.genome import (
     DecodeError,
     decode,
     fin_capped,
     random_genomes,
 )
-from aeroforge.geom import GeometryError, build_parts
+from aeroforge.geom import GeometryError, build_parts, exact_volumes_m3
 from aeroforge.mesh import MeshError, tessellate
 from aeroforge.models import Requirements
 from aeroforge.physics_cli import INPUT_ERRORS, check_cmd, derive_cmd, validate_cmd
@@ -74,6 +75,12 @@ def _parser() -> argparse.ArgumentParser:
     gallery.add_argument("--out", type=Path, default=Path("gallery"), help="output directory")
     gallery.add_argument(
         "--brief", choices=BRIEFS, default="stub", help="stand-in brief until derive (step 3)"
+    )
+    gallery.add_argument(
+        "--body-style",
+        choices=("smooth", "faceted"),
+        default=None,
+        help="pin the body_style gene of every genome (default: drawn at random)",
     )
     gallery.add_argument(
         "--top-by-style", action="store_true", help="half top style scores of a pool, half random"
@@ -153,7 +160,8 @@ def _tile(
     """Decode, build, render one genome; a failure becomes a tile with the reason."""
     tile_id = f"g{index:03d}"
     try:
-        meshes = tessellate(build_parts(decode(genome, req)))
+        design = decode(genome, req)
+        meshes = tessellate(build_parts(design), exact_volumes_m3(design))
     except (DecodeError, GeometryError, MeshError) as exc:
         log.warning("%s failed: %s", tile_id, exc)
         err = f"{type(exc).__name__}: {exc}"
@@ -180,13 +188,19 @@ def _style_scores(genomes: np.ndarray, req: Requirements, model: StyleModel) -> 
 
 
 def _picks(
-    n: int, seed: int, req: Requirements, top_by_style: bool
+    n: int, seed: int, req: Requirements, top_by_style: bool, body_style: str | None = None
 ) -> tuple[np.ndarray, list[float | None]]:
-    """Genomes to render and their style scores (None for a plain random gallery)."""
+    """Genomes to render and their style scores (None for a plain random gallery); body_style
+    pins that gene of every drawn genome."""
     rng = np.random.default_rng(seed)
+
+    def draw(count: int) -> np.ndarray:
+        g = random_genomes(rng, count)
+        return g if body_style is None else pin_choice(g, "body_style", body_style)
+
     if not top_by_style:
-        return random_genomes(rng, n), [None] * n
-    pool = random_genomes(rng, int(number("style_pool_size")))
+        return draw(n), [None] * n
+    pool = draw(int(number("style_pool_size")))
     pool_scores = _style_scores(pool, req, packaged_model())
     decoded = np.isfinite(pool_scores)
     pool, pool_scores = pool[decoded], pool_scores[decoded]
@@ -194,12 +208,14 @@ def _picks(
     return pool[rows], [float(s) for s in pool_scores[rows]]
 
 
-def _gallery(n: int, seed: int, out: Path, brief: str, top_by_style: bool) -> dict[str, object]:
+def _gallery(
+    n: int, seed: int, out: Path, brief: str, top_by_style: bool, body_style: str | None
+) -> dict[str, object]:
     """Render n genomes into out/gallery.html."""
     tiles_dir = out / "tiles"
     tiles_dir.mkdir(parents=True, exist_ok=True)
     req = brief_requirements(brief)
-    genomes, tile_scores = _picks(n, seed, req, top_by_style)
+    genomes, tile_scores = _picks(n, seed, req, top_by_style, body_style)
     tiles = [
         _tile(i, g, req, tiles_dir, s)
         for i, (g, s) in enumerate(zip(genomes, tile_scores, strict=True))
@@ -213,6 +229,7 @@ def _gallery(n: int, seed: int, out: Path, brief: str, top_by_style: bool) -> di
         "brief": brief,
         "n": n,
         "top_by_style": top_by_style,
+        "body_style": body_style,
         "built": n - len(failed),
         "failed": failed,
         "gallery": str(page),
@@ -320,7 +337,9 @@ def _run(args: argparse.Namespace) -> tuple[dict[str, object], int]:
     if args.cmd == "gallery":
         if args.n < 1:
             raise InputError("--n must be >= 1")
-        return _gallery(args.n, args.seed, args.out, args.brief, args.top_by_style), EXIT_OK
+        return _gallery(
+            args.n, args.seed, args.out, args.brief, args.top_by_style, args.body_style
+        ), EXIT_OK
     out = args.out or Path(str(files("aeroforge.data").joinpath("style.yaml")))
     return _tune(args.marks, args.brief, out), EXIT_OK
 

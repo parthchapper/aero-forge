@@ -9,7 +9,8 @@ from OCP.BRepOffsetAPI import BRepOffsetAPI_ThruSections
 from OCP.gp import gp_Pnt
 
 from aeroforge.constants import number
-from aeroforge.models import Body, Design, Propulsor, Surface, instance_names
+from aeroforge.facet_query import volume_m3
+from aeroforge.models import Body, Design, Polyhedron, Propulsor, Surface, instance_names
 from aeroforge.shapes import axis_sign, blade_rings, body_rings, body_stations, section_outline
 
 log = logging.getLogger(__name__)
@@ -56,8 +57,26 @@ def surface_solid(surface: Surface) -> cq.Solid:
     return checked_solid(surface.name, cq.Shape.cast(loft.Shape()))
 
 
+def faceted_body_solid(body: Body, poly: Polyhedron) -> cq.Solid:
+    """Solid of a flat-panel body: each face a polygon wire -> planar face, sewn into a shell."""
+    v = np.asarray(poly.vertices_m) + np.asarray(body.nose_m)
+    faces = [
+        cq.Face.makeFromWires(
+            cq.Wire.makePolygon([cq.Vector(*map(float, v[i])) for i in face], close=True)
+        )
+        for face in poly.faces
+    ]
+    shell = cq.Shell.makeShell(faces)
+    if len(shell.Faces()) != len(faces):
+        raise GeometryError(body.name, f"shell has {len(shell.Faces())} of {len(faces)} faces")
+    return checked_solid(body.name, cq.Solid.makeSolid(shell))
+
+
 def body_solid(body: Body) -> cq.Solid:
-    """Loft from a nose vertex through super-ellipse rings to a flat tail cap."""
+    """Loft from a nose vertex through super-ellipse rings to a flat tail cap; a faceted body is
+    built from its own flat faces."""
+    if body.facets is not None:
+        return faceted_body_solid(body, body.facets)
     stations = body_stations(int(number("body_loft_cad_stations")))[1:]
     rings = body_rings(body, stations, int(number("body_loft_ring_points")))
     loft = BRepOffsetAPI_ThruSections(True, False)
@@ -97,6 +116,15 @@ def prop_solid(prop: Propulsor) -> cq.Solid:
         )
         shape = shape.fuse(shaft)
     return checked_solid(prop.name, shape.clean())
+
+
+def exact_volumes_m3(design: Design) -> dict[str, float]:
+    """Closed-form volumes [m^3] of the flat-panel bodies by part name (right / centre instance)."""
+    return {
+        instance_names(b.name, b.mirrored)[-1]: volume_m3(b.facets)
+        for b in design.bodies
+        if b.facets is not None
+    }
 
 
 def build_parts(design: Design) -> dict[str, cq.Solid]:

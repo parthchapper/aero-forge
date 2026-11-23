@@ -5,6 +5,7 @@ from itertools import pairwise
 import numpy as np
 
 from aeroforge.constants import number, numbers
+from aeroforge.facet_query import area_centroid_x_m, surface_area_m2
 from aeroforge.models import Body, Design, Frozen, Requirements, Surface, Vec3
 from aeroforge.shapes import body_rings, body_stations
 
@@ -86,8 +87,9 @@ def _surface_items(s: Surface) -> list[MassItem]:
     return items
 
 
-def _body_item(b: Body) -> MassItem:
-    """Shell mass of a body from its wetted area (ring perimeters integrated along x)."""
+def _smooth_wetted(b: Body) -> tuple[float, float]:
+    """Wetted area [m^2] and its centroid x [m, from the nose] of a smooth body (ring perimeters
+    integrated along x)."""
     t = body_stations(int(number("body_loft_stations")))
     rings = body_rings(b, t, int(number("body_ring_points")))
     closed = np.concatenate([rings, rings[:, :1]], axis=1)
@@ -95,7 +97,15 @@ def _body_item(b: Body) -> MassItem:
     x = t * b.length_m
     strip = np.diff(x) * (perimeter[:-1] + perimeter[1:]) / 2
     wetted = float(strip.sum())
-    x_c = float((strip * (x[:-1] + x[1:]) / 2).sum() / wetted)
+    return wetted, float((strip * (x[:-1] + x[1:]) / 2).sum() / wetted)
+
+
+def _body_item(b: Body) -> MassItem:
+    """Shell mass of a body from its wetted area (exact sum of the flat faces when faceted)."""
+    if b.facets is not None:
+        wetted, x_c = surface_area_m2(b.facets), area_centroid_x_m(b.facets)
+    else:
+        wetted, x_c = _smooth_wetted(b)
     centre = _on_centreline(np.asarray(b.nose_m) + np.array([x_c, 0, 0]), b.mirrored)
     mass = _instances(b.mirrored) * wetted * number("body_areal_density_kg_m2")
     return MassItem(name=b.name, mass_kg=mass, xyz_m=_vec(centre))

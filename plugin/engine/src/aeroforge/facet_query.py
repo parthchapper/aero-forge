@@ -10,6 +10,8 @@ from aeroforge.constants import number
 from aeroforge.facet_ends import FacetError
 from aeroforge.models import Polyhedron
 
+ASB_AREA_POWER = 1.8717618013591173  # aerosandbox FuselageXSec.xsec_area: area = w h / (s^-p + 1)
+
 
 def _normal(points: np.ndarray) -> np.ndarray:
     """Unit Newell normal of a polygon loop (outward for the loop order of a polyhedron face)."""
@@ -181,3 +183,175 @@ def cell_projection(poly: Polyhedron, columns: tuple[int, int]) -> np.ndarray:
     ]
     width = max(len(h) for h in hulls)
     return np.array([np.vstack([h, np.repeat(h[-1:], width - len(h), axis=0)]) for h in hulls])
+
+
+def _triangles(poly: Polyhedron) -> tuple[np.ndarray, np.ndarray]:
+    """Fan triangles of every face, shape (T, 3, 3), and the face index of each (body frame)."""
+    v = np.asarray(poly.vertices_m)
+    tris, owner = [], []
+    for k, face in enumerate(poly.faces):
+        for i in range(1, len(face) - 1):
+            tris.append([v[face[0]], v[face[i]], v[face[i + 1]]])
+            owner.append(k)
+    return np.array(tris), np.array(owner)
+
+
+def face_areas_m2(poly: Polyhedron) -> np.ndarray:
+    """Area [m^2] of every face, in face order."""
+    tris, owner = _triangles(poly)
+    area = np.linalg.norm(np.cross(tris[:, 1] - tris[:, 0], tris[:, 2] - tris[:, 0]), axis=1) / 2.0
+    return np.bincount(owner, weights=area, minlength=len(poly.faces))
+
+
+def surface_area_m2(poly: Polyhedron) -> float:
+    """Exact wetted area [m^2]: the sum of the flat faces."""
+    return float(face_areas_m2(poly).sum())
+
+
+def area_centroid_x_m(poly: Polyhedron) -> float:
+    """x [m] of the centroid of the skin (area-weighted), body frame."""
+    tris, _ = _triangles(poly)
+    area = np.linalg.norm(np.cross(tris[:, 1] - tris[:, 0], tris[:, 2] - tris[:, 0]), axis=1) / 2.0
+    return float((area * tris[:, :, 0].mean(axis=1)).sum() / area.sum())
+
+
+def volume_m3(poly: Polyhedron) -> float:
+    """Exact enclosed volume [m^3] (divergence theorem over the outward fan triangles)."""
+    t, _ = _triangles(poly)
+    return float(np.einsum("ij,ij->i", t[:, 0], np.cross(t[:, 1], t[:, 2])).sum() / 6.0)
+
+
+def _edges(poly: Polyhedron) -> np.ndarray:
+    """Unique vertex-index pairs of the polyhedron, shape (E, 2)."""
+    pairs = {
+        (min(a, b), max(a, b)) for f in poly.faces for a, b in zip(f, f[1:] + f[:1], strict=True)
+    }
+    return np.array(sorted(pairs))
+
+
+def slice_points(poly: Polyhedron, x_m: float) -> np.ndarray:
+    """(y, z) points [m] where the polyhedron's edges meet the plane x = x_m (body frame); the
+    cross-section is their convex hull (sections are convex, SPEC §5)."""
+    tol = number("facet_geom_tol_m")
+    v = np.asarray(poly.vertices_m)
+    x_m = float(np.clip(x_m, v[:, 0].min(), v[:, 0].max()))
+    a, b = (v[c] for c in _edges(poly).T)
+    flat = np.abs(a[:, 0] - x_m) + np.abs(b[:, 0] - x_m) <= 2.0 * tol
+    cross = ((a[:, 0] - x_m) * (b[:, 0] - x_m) <= 0.0) & (np.abs(a[:, 0] - b[:, 0]) > tol)
+    dx = np.where(cross, b[:, 0] - a[:, 0], 1.0)
+    t = np.clip((x_m - a[:, 0]) / dx, 0.0, 1.0)[:, None]
+    hit = (a + t * (b - a))[cross][:, 1:]
+    return np.vstack([hit, a[flat][:, 1:], b[flat][:, 1:]])
+
+
+def slice_section(poly: Polyhedron, x_m: float) -> tuple[float, float, float, float]:
+    """(width, height, area, centre z) [m, m, m^2, m] of the cross-section at x = x_m: the
+    bounding box of its hull and the hull's area (zeros where the solid closes)."""
+    p = slice_points(poly, x_m)
+    if len(p) < 3:
+        return 0.0, 0.0, 0.0, float(p[:, 1].mean()) if len(p) else 0.0
+    mid = p.mean(axis=0)
+    ring = p[np.argsort(np.arctan2(p[:, 1] - mid[1], p[:, 0] - mid[0]), kind="stable")]
+    area = (
+        abs(
+            float(
+                np.sum(ring[:, 0] * np.roll(ring[:, 1], -1) - np.roll(ring[:, 0], -1) * ring[:, 1])
+            )
+        )
+        / 2.0
+    )
+    lo, hi = p.min(axis=0), p.max(axis=0)
+    return float(hi[0] - lo[0]), float(hi[1] - lo[1]), area, float((hi[1] + lo[1]) / 2.0)
+
+
+def equivalent_exponent(width_m: float, height_m: float, area_m2: float) -> float:
+    """Super-ellipse exponent whose asb FuselageXSec area (w h / (s^-1.8717618 + 1)) is area_m2:
+    1 is the diamond (half the box), the table's maximum the near-rectangle."""
+    top = number("equiv_section_exp_max")
+    if area_m2 <= 0.0 or width_m * height_m <= 0.0:
+        return 1.0
+    fill = width_m * height_m / area_m2 - 1.0
+    if fill <= 0.0:
+        return top
+    return float(np.clip(fill ** (-1.0 / ASB_AREA_POWER), 1.0, top))
+
+
+def _in_convex(poly_xy: np.ndarray, pts: np.ndarray) -> np.ndarray:
+    """Mask of pts (n, 2) inside the convex polygon poly_xy (either winding, edges included)."""
+    edge = np.roll(poly_xy, -1, axis=0) - poly_xy
+    rel = pts[:, None, :] - poly_xy[None, :, :]
+    side = edge[None, :, 0] * rel[:, :, 1] - edge[None, :, 1] * rel[:, :, 0]
+    tol = number("facet_geom_tol_m")
+    return np.all(side >= -tol, axis=1) | np.all(side <= tol, axis=1)
+
+
+def roof_panels_xy(poly: Polyhedron) -> list[np.ndarray]:
+    """Outlines (x, y) [m, body frame] of the upward-facing faces: the roof panels."""
+    v = np.asarray(poly.vertices_m)
+    tol = number("facet_geom_tol_m")
+    return [v[list(f)][:, :2] for f in poly.faces if _normal(v[list(f)])[2] > tol]
+
+
+def _clip(poly_xy: np.ndarray, axis: int, value: float, keep_above: bool) -> np.ndarray:
+    """Convex polygon cut by the line coordinate[axis] = value (Sutherland-Hodgman)."""
+    sign = 1.0 if keep_above else -1.0
+    out: list[np.ndarray] = []
+    for a, b in zip(poly_xy, np.roll(poly_xy, -1, axis=0), strict=True):
+        da, db = sign * (a[axis] - value), sign * (b[axis] - value)
+        if da >= 0.0:
+            out.append(a)
+        if (da >= 0.0) != (db >= 0.0):
+            out.append(a + (b - a) * da / (da - db))
+    return np.array(out).reshape(-1, 2)
+
+
+def _area_xy(p: np.ndarray) -> float:
+    """Area of a convex polygon [m^2] (0 for fewer than 3 corners)."""
+    if len(p) < 3:
+        return 0.0
+    return abs(float(np.sum(p[:, 0] * np.roll(p[:, 1], -1) - np.roll(p[:, 0], -1) * p[:, 1]))) / 2.0
+
+
+def hatch_rect_xy(
+    poly: Polyhedron, centre_xy: tuple[float, float], half_xy: tuple[float, float]
+) -> tuple[tuple[float, float], tuple[float, float]]:
+    """(centre, half sizes) [m, body frame] of the hatch rectangle for a bay footprint: the roof
+    panel covering most of the footprint, the footprint cut back to that panel's edges, then
+    shrunk about its centre until its corners lie in the panel. Unchanged without a roof panel."""
+    lo = np.asarray(centre_xy) - np.asarray(half_xy)
+    hi = np.asarray(centre_xy) + np.asarray(half_xy)
+    best, best_area = None, 0.0
+    for panel in roof_panels_xy(poly):
+        cut = panel
+        for axis in (0, 1):
+            cut = _clip(_clip(cut, axis, lo[axis], True), axis, hi[axis], False)
+        if _area_xy(cut) > best_area:
+            best, best_area, box = panel, _area_xy(cut), cut
+    if best is None:
+        return centre_xy, half_xy
+    mid, half = (box.min(axis=0) + box.max(axis=0)) / 2.0, (box.max(axis=0) - box.min(axis=0)) / 2.0
+    s = rect_scale_in_panel(best, (float(mid[0]), float(mid[1])), (float(half[0]), float(half[1])))
+    return (float(mid[0]), float(mid[1])), (float(half[0] * s), float(half[1] * s))
+
+
+def rect_scale_in_panel(
+    panel_xy: np.ndarray, centre_xy: tuple[float, float], half_xy: tuple[float, float]
+) -> float:
+    """Largest scale in [hatch_panel_min_frac, 1] of the rectangle (half sizes half_xy about
+    centre_xy) whose four corners lie in the panel outline: the hatch ends on the panel's edges."""
+    sign = np.array([[a, b] for a in (-1, 1) for b in (-1, 1)])
+    centre, half = np.asarray(centre_xy), np.asarray(half_xy)
+
+    def fits(s: float) -> bool:
+        return bool(_in_convex(panel_xy, centre + s * half * sign).all())
+
+    lo = number("hatch_panel_min_frac")
+    if fits(1.0):
+        return 1.0
+    if not fits(lo):
+        return lo
+    hi = 1.0
+    for _ in range(int(number("outline_search_steps"))):
+        mid = (lo + hi) / 2
+        lo, hi = (mid, hi) if fits(mid) else (lo, mid)
+    return lo

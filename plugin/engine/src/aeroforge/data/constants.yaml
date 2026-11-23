@@ -246,3 +246,10 @@ containment_ring_points: {value: 16, unit: count, source: "points per tube / dis
 view_px: {value: 1024, unit: px, source: "SPEC §6 views at 1024 px"}
 viewer_three_version: {value: "0.160.0", unit: "-", source: "three.js release loaded by viewer.html from cdn.jsdelivr.net (SPEC §11)"}
 report_fidelity: {value: "Conceptual design. Tier-2 aerodynamics are a vortex-lattice model of the wings plus a buildup model for bodies and profile drag; masses come from areal densities and component tables; structure is a cantilever spar estimate; internals are placement envelopes checked analytically against the outer mould. None of it replaces wind-tunnel, structural or flight testing.", unit: "-", source: "SPEC §11 fidelity statement"}
+equiv_section_exp_max: {value: 40.0, unit: "-", source: "U2: largest super-ellipse exponent of the equivalent aero section of a faceted body (a rectangle; the asb area formula is within 0.1 % of the box there)"}
+servo_tray_slide_steps: {value: 12, unit: count, source: "U2: positions tried along the root chord for a body-hosted servo tray that does not fit at mid chord (narrow nose of a faceted body)"}
+panels_sheet_width_mm: {value: 900.0, unit: mm, source: "U2: width of the flat-panel layout sheet (panels.svg); faces are packed in rows"}
+panels_gap_mm: {value: 12.0, unit: mm, source: "U2: gap between faces on the panels sheet"}
+panels_font_mm: {value: 4.0, unit: mm, source: "U2: label height on the panels sheet"}
+hatch_panel_min_frac: {value: 0.25, unit: "-", source: "U2: smallest share of the bay footprint a hatch on a flat-panel body shrinks to when the roof panel over the bay is narrower than the bay"}
+report_fidelity_faceted: {value: "A flat-panel body enters the aerodynamic model as an equivalent smooth section (same width, height and area at each station); the extra drag of its sharp chines and edges is not modelled.", unit: text, source: "U2: SPEC 8 fidelity statement for faceted bodies, added to the report when a body is flat-panel"}

@@ -87,6 +87,13 @@ def area_rows(shadow: Areas) -> list[str]:
     ]
 
 
+def _faceted_fidelity(design: Design) -> list[str]:
+    """The faceted-body sentence of the fidelity statement, when a body is flat-panel."""
+    if any(b.facets is not None for b in design.bodies):
+        return [str(constant("constants", "report_fidelity_faceted"))]
+    return []
+
+
 def report_md(
     b: Brief,
     req: Requirements,
@@ -129,6 +136,7 @@ def report_md(
         "",
         "## Fidelity",
         str(constant("constants", "report_fidelity")),
+        *_faceted_fidelity(design),
         "",
     ]
     return "\n".join(lines)

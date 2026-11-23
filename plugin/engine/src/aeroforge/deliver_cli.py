@@ -16,12 +16,13 @@ from aeroforge.candidate import decoded_desc
 from aeroforge.checks import CheckReport
 from aeroforge.constants import number
 from aeroforge.descriptor import median_nearest
-from aeroforge.geom import GeometryError, build_parts
+from aeroforge.geom import GeometryError, build_parts, exact_volumes_m3
 from aeroforge.hardpoints import containment_failures, hardpoints
 from aeroforge.internals import missing
 from aeroforge.internals_geom import internal_parts
 from aeroforge.mesh import MeshError, PartMesh, read_glb, tessellate, write_glb
 from aeroforge.models import Brief, Design
+from aeroforge.panels import write_panels
 from aeroforge.physics_cli import (
     CHECK_FILE,
     DESIGN_FILE,
@@ -145,7 +146,8 @@ def preview_cmd(folder: Path, fid: str) -> tuple[Summary, int]:
     """`build --finalist`: outer-mould assembly.glb of one finalist in its own dir, no adopt."""
     target = _finalist_dir(folder, fid)
     try:
-        meshes = tessellate(build_parts(load_design(target / DESIGN_FILE)))
+        design = load_design(target / DESIGN_FILE)
+        meshes = tessellate(build_parts(design), exact_volumes_m3(design))
     except (GeometryError, MeshError) as exc:
         error = f"{fid}: {type(exc).__name__}: {exc}"
         summary = {"cmd": "build", "finalist": fid, "built": False, "cad_errors": [error]}
@@ -166,13 +168,14 @@ def build_cmd(folder: Path, full: bool, finalist: str | None = None) -> tuple[Su
         try:
             items = hardpoints(design, req.recovery) if full else ()
             parts = dict(sorted({**build_parts(design), **internal_parts(items)}.items()))
-            meshes = tessellate(parts)
+            meshes = tessellate(parts, exact_volumes_m3(design))
         except (GeometryError, MeshError) as exc:
             errors.append(f"{fid}: {type(exc).__name__}: {exc}")
             continue
         if fid is not None:
             _adopt(folder, fid, design)
         _write_cad(folder, parts, meshes)
+        n_panels = write_panels(folder, design)
         absent, outside = missing(design, req.recovery, items), containment_failures(design, items)
         return {
             "cmd": "build",
@@ -180,6 +183,7 @@ def build_cmd(folder: Path, full: bool, finalist: str | None = None) -> tuple[Su
             "finalist": fid,
             "parts": len(parts),
             "internals": len(items),
+            "panels": n_panels,
             "missing": absent if full else None,
             "not_contained": outside if full else None,
             "cad_errors": errors,

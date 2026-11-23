@@ -14,7 +14,7 @@ from aeroforge.candidate import Candidate
 from aeroforge.constants import number
 from aeroforge.derive import derive
 from aeroforge.gallery import Tile, gallery_html
-from aeroforge.geom import GeometryError, build_parts
+from aeroforge.geom import GeometryError, build_parts, exact_volumes_m3
 from aeroforge.mesh import MeshError, tessellate
 from aeroforge.models import Design
 from aeroforge.physics_cli import BRIEF_FILE, REQUIREMENTS_FILE
@@ -37,7 +37,7 @@ Summary = dict[str, object]
 
 def render_views(design: Design, tiles_dir: Path, tile_id: str) -> tuple[str, str]:
     """Build, mesh and render iso + top views; paths relative to the gallery page."""
-    meshes = tessellate(build_parts(design))
+    meshes = tessellate(build_parts(design), exact_volumes_m3(design))
     px = int(number("gallery_tile_px"))
     paths = []
     for view in ("iso", "top"):

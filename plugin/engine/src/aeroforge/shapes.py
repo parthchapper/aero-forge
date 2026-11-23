@@ -6,7 +6,7 @@ import numpy as np
 
 from aeroforge.airfoil import naca_outline
 from aeroforge.constants import number, numbers
-from aeroforge.facet_query import inside_faceted, sample_points
+from aeroforge.facet_query import inside_faceted, sample_points, slice_section
 from aeroforge.models import Body, Design, Propulsor, Section, Surface, instance_names
 
 X_HAT = np.array([1.0, 0.0, 0.0])
@@ -129,6 +129,15 @@ def body_axis_z(body: Body, t: np.ndarray) -> np.ndarray:
     tail_upsweep_deg (0 leaves the axis exactly at the nose height)."""
     run = np.clip(np.clip(t, 0.0, 1.0) - (1.0 - body.tail_frac), 0.0, None) * body.length_m
     return body.nose_m[2] + run * np.tan(np.radians(body.tail_upsweep_deg))
+
+
+def axis_z_at_x(body: Body, x_m: float) -> float:
+    """Height [m] of the body's axis at world x_m: the smooth law, or for flat panels the middle
+    of the cross-section there (stations are shifted whole by the upsweep, so the two agree
+    at the stations and between them)."""
+    if body.facets is not None:
+        return float(body.nose_m[2] + slice_section(body.facets, x_m - body.nose_m[0])[3])
+    return float(body_axis_z(body, np.array([(x_m - body.nose_m[0]) / body.length_m]))[0])
 
 
 def unit_ring(n_points: int) -> tuple[np.ndarray, np.ndarray]:

@@ -10,7 +10,8 @@ import numpy as np
 
 from aeroforge.airfoil import naca_outline
 from aeroforge.constants import number
-from aeroforge.models import Body, Design, Requirements, Section, Surface
+from aeroforge.facet_query import equivalent_exponent, slice_section
+from aeroforge.models import Body, Design, Polyhedron, Requirements, Section, Surface
 from aeroforge.shapes import body_axis_z, body_radius_frac, body_stations
 from aeroforge.style import wing_surfaces
 
@@ -130,8 +131,28 @@ def wing(s: Surface, deflection_deg: float, vlm: bool) -> asb.Wing:
     return asb.Wing(name=s.name, xsecs=xsecs, symmetric=s.mirrored)
 
 
+def _faceted_fuselage(b: Body, y_sign: float, poly: Polyhedron) -> asb.Fuselage:
+    """Equivalent fuselage of a flat-panel body (SPEC §8): each station keeps the polygon's width,
+    height and area (super-ellipse exponent from asb's own area formula). The extra drag of sharp
+    chines is not modelled."""
+    xsecs = []
+    for ti in body_stations(int(number("aero_body_stations"))):
+        width, height, area, zc = slice_section(poly, ti * b.length_m)
+        xsecs.append(
+            asb.FuselageXSec(
+                xyz_c=[b.nose_m[0] + ti * b.length_m, y_sign * b.nose_m[1], b.nose_m[2] + zc],
+                width=width,
+                height=height,
+                shape=equivalent_exponent(width, height, area),
+            )
+        )
+    return asb.Fuselage(name=b.name, xsecs=xsecs)
+
+
 def _fuselage(b: Body, y_sign: float) -> asb.Fuselage:
     """asb.Fuselage of one body instance (y mirrored by y_sign)."""
+    if b.facets is not None:
+        return _faceted_fuselage(b, y_sign, b.facets)
     t = body_stations(int(number("aero_body_stations")))
     r = body_radius_frac(b, t)
     xsecs = [

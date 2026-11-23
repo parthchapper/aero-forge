@@ -60,11 +60,12 @@ def _signed_volume_m3(vertices: np.ndarray, faces: np.ndarray) -> float:
     return float(np.einsum("ij,ij->i", a, np.cross(b, c)).sum() / 6.0)
 
 
-def _tessellate_part(name: str, solid: cq.Solid) -> PartMesh:
+def _tessellate_part(name: str, solid: cq.Solid, exact_m3: float | None = None) -> PartMesh:
     """Mesh at a tolerance scaled to the part's cross-section, sqrt(volume / diagonal), so thin
     wings get as fine a mesh as fat bodies; OCC's mesher sometimes folds an apex loft at a given
-    tolerance, so a mesh whose volume disagrees with the solid is redone finer."""
-    exact = solid_volume_m3(solid)
+    tolerance, so a mesh whose volume disagrees with the solid is redone finer. exact_m3 is a
+    volume known in closed form (a flat-panel body's polyhedron), used instead of the solid's."""
+    exact = solid_volume_m3(solid) if exact_m3 is None else exact_m3
     diagonal_m = solid.BoundingBox().DiagonalLength
     if part_kind(name) == "prop":
         # Thin blades would drive the section rule to ~0.1 mm; prop volume barely depends on it.
@@ -93,9 +94,17 @@ def _mirrored(mesh: PartMesh, name: str) -> PartMesh:
     return PartMesh(name, mesh.kind, mesh.vertices * MIRROR_Y, mesh.faces[:, ::-1].copy())
 
 
-def tessellate(parts: dict[str, cq.Solid]) -> list[PartMesh]:
-    """Volume-checked meshes of all parts, sorted by name; `_L` parts mirror their `_R` mesh."""
-    meshes = {n: _tessellate_part(n, parts[n]) for n in parts if not _has_right_twin(n, parts)}
+def tessellate(
+    parts: dict[str, cq.Solid], exact_m3: dict[str, float] | None = None
+) -> list[PartMesh]:
+    """Volume-checked meshes of all parts, sorted by name; `_L` parts mirror their `_R` mesh.
+    exact_m3 gives closed-form volumes [m^3] by part name (see geom.exact_volumes_m3)."""
+    known = exact_m3 or {}
+    meshes = {
+        n: _tessellate_part(n, parts[n], known.get(n))
+        for n in parts
+        if not _has_right_twin(n, parts)
+    }
     for n in parts:
         if _has_right_twin(n, parts):
             meshes[n] = _mirrored(meshes[n[:-1] + "R"], n)

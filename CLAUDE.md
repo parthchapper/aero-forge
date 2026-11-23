@@ -34,6 +34,8 @@ Pipeline (one CLI command per stage; stages talk through files in the design dir
 
 Tunables are never in code: `data/{genes,checks,style,constants,layouts,reference}.yaml` read through `constants.py` (`knob_*` entries have r0/r1 values interpolated by randomness r). The same seed + history + brief gives the same design.
 
+Other root files: `U1_overnight_log.md` (U1 run log), `archive_*/` (git-ignored snapshots; never edit), `Claude outputs/` (scratch).
+
 Docs: SPEC.md (contract), PLAN.md (0.3 steps 0–6), `Fix/plan.md` (upgrade U0–U10), SPEC_v3.md (the superseded spec), CHANGELOG.md (Decisions, Deviations, Known issues, per-step log; very large, grep it rather than reading it whole).
 
 ## Status

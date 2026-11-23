@@ -13,7 +13,7 @@ from aeroforge.constants import number, numbers
 from aeroforge.models import Body, Design, Frozen, Recovery, Section, Surface, Vec3
 from aeroforge.shapes import (
     X_HAT,
-    body_axis_z,
+    axis_z_at_x,
     in_outline,
     inside_body,
     inside_loft,
@@ -226,15 +226,28 @@ def _tray_in_surface(s: Surface, f: float) -> Internal | None:
 
 
 def _tray_in_body(s: Surface, body: Body) -> Internal:
-    """Servo tray in the host body beside the root chord (pushrod drive): a thin surface."""
-    length, width, height = numbers("servo_tray_m")
+    """Servo tray in the host body beside the root chord (pushrod drive): a thin surface, at mid
+    chord or else the nearest position along the root chord where the body holds it."""
+    width = numbers("servo_tray_m")[1]
     root = s.sections[0]
     # a mirrored surface on the centre body puts its right tray beside the centreline; on a pod
     # (mirrored itself) the right tray sits on the right pod's axis
     y = body.nose_m[1] + (width if s.mirrored and not body.mirrored else 0.0)
-    x = root.le_m[0] + root.chord_m / 2
-    z = float(body_axis_z(body, np.array([(x - body.nose_m[0]) / body.length_m]))[0])
-    centre = (x, y, z)
+    mid = root.le_m[0] + root.chord_m / 2
+    steps = int(number("servo_tray_slide_steps"))
+    first = None
+    for f in sorted(np.linspace(-0.5, 0.5, steps + 1), key=abs):
+        x = mid + float(f) * root.chord_m
+        tray = _body_tray(s, body, (x, y, axis_z_at_x(body, x)))
+        first = first or tray
+        if inside_body(body, probe_points(tray)).all():
+            return tray
+    return first  # nothing fits: mid chord, so containment reports the misfit
+
+
+def _body_tray(s: Surface, body: Body, centre: Vec3) -> Internal:
+    """The body-hosted servo tray of surface s centred at `centre`."""
+    length, width, height = numbers("servo_tray_m")
     return Internal(
         name=f"servo_{s.name}",
         item="servo_tray",

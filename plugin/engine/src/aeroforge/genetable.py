@@ -55,6 +55,17 @@ def genome_length() -> int:
     return len(gene_table())
 
 
+def pin_choice(genomes: np.ndarray, gene: str, label: str) -> np.ndarray:
+    """Copy of genomes (rows) with the choice gene `gene` set to the middle of `label`'s cell."""
+    names = [g.name for g in gene_table()]
+    row = gene_table()[names.index(gene)]
+    if row.kind != "choice" or label not in row.choices:
+        raise GenomeError(f"{gene}: no choice {label!r}")
+    out = np.array(genomes, dtype=float, copy=True)
+    out[..., names.index(gene)] = (row.choices.index(label) + 0.5) / len(row.choices)
+    return out
+
+
 def surface_count() -> int:
     """Number of surface slots defined in genes.yaml."""
     return sum(1 for g in gene_table() if g.name.endswith("_root_x_frac"))
