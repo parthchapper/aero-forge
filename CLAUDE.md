@@ -16,6 +16,7 @@ Stop at the step's gate. RULES.md holds the hard rules (3 fix tries per failing 
 ## Commands
 All engine commands run from `plugin/engine` with the venv Python (host `python` is 3.14: never use it for the engine). Below `PY` = `~/.aero-forge/venv/Scripts/python.exe` (Windows) / `~/.aero-forge/venv/bin/python` (POSIX).
 - (Re)install env: `python plugin/scripts/setup_env.py --dev` (any host Python; finds or installs 3.11 via uv). `/forge setup` swaps the venv to a non-editable install: re-run this before developing.
+- Fast suite runs the 1,000-genome property tests on 50 genomes (tests/conftest.py `population`); `-m slow` runs the full 1,000 and is mandatory before every merge to main and at every user gate (user, U2).
 - Fast suite (limit 90 s): `PY -m pytest -q -x --tb=short -m "not slow"`; slow: `-m slow`; one test: `PY -m pytest -q -x --tb=short tests/test_search.py::test_name`. Send long output to a file and read the tail.
 - Lint: `PY -m ruff check src tests ../scripts ../hooks` and `PY -m ruff format --check src tests ../scripts ../hooks`.
 - CLI: `PY -m aeroforge <cmd>`; stdout is a JSON summary, artifacts go to disk; exit 0 ok, 1 check failed, 2 bad input, 3 environment. Commands: `validate`, `derive`, `search`, `verify`, `build [--full]`, `render`, `report`, `check`, `gallery --n --seed [--top-by-style]`, `tune-style`, `demo --runs N`.
