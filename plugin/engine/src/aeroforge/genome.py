@@ -15,10 +15,12 @@ from aeroforge.assemble import (
 from aeroforge.constants import number
 from aeroforge.finish import finish_design
 from aeroforge.genetable import Genes, family_of, genome_length, surface_count, unpack
-from aeroforge.layout import boxes_in_wing, pod_y_bounds
+from aeroforge.layout import boxes_in_wing
 from aeroforge.models import Adjust, Body, Design, Family, Requirements, Spar
 from aeroforge.planform import SurfaceGenes, added_fin_spec, fit_tc
-from aeroforge.shift import Anchor, Growth, centre_body, growth
+from aeroforge.pod_fit import pod_y_bounds, prop_diameter
+from aeroforge.prop_end import PROP_COUNT, centre_body_for_prop
+from aeroforge.shift import Anchor, Growth, growth
 
 NO_ADJUST = Adjust()
 
@@ -285,16 +287,22 @@ def design_area_m2(v: Genes, req: Requirements) -> float:
 
 def _centre(
     v: Genes, fam: Family, req: Requirements, state: State
-) -> tuple[Body | None, Anchor | None]:
+) -> tuple[Body | None, Anchor | None, Family]:
     """The centre body of this pass (None when off) and its root anchor; a body whose boxes ride
     in the wing is a plain body of the fineness."""
     if not state.body_on:
-        return None, None
+        return None, None, fam
     length_frac = v.num["body_length_frac"]
     if state.flat_tail:  # a root sat on the rising tail cone: the upsweep was dropped
         fam = fam.model_copy(update={"body_tail_upsweep_deg": 0.0})
-    return centre_body(
-        req, fam, length_frac, state.body_min_length_m, state.shift, not state.wing_boxes
+    return centre_body_for_prop(
+        req,
+        fam,
+        length_frac,
+        state.body_min_length_m,
+        state.shift,
+        not state.wing_boxes,
+        (prop_pattern(v, state), v.pick["prop_direction"] == "pusher"),
     )
 
 
@@ -308,10 +316,13 @@ def _attempt(
     v: Genes, fam: Family, req: Requirements, state: State, adjust: Adjust
 ) -> Design | State:
     """One decode pass: a finished design or the next repair state."""
-    body, anchor = _centre(v, fam, req, state)
+    body, anchor, centre_fam = _centre(v, fam, req, state)
+    fam = fam.model_copy(update={"shape": centre_fam.shape})  # only the end shape is kept
     pattern = prop_pattern(v, state)
     half_w = body.half_width_m if body else 0.0
-    bounds = pod_y_bounds(v.num, fam, req, half_w, pattern)
+    pusher = v.pick["prop_direction"] == "pusher"
+    mount = (prop_diameter(req, PROP_COUNT[pattern]), pusher) if pattern != "centre" else None
+    bounds = pod_y_bounds(v.num, fam, req, half_w, pattern, mount)
     ctx = Context(
         req,
         fam,
@@ -323,6 +334,7 @@ def _attempt(
         adjust.fin_scale,
         anchor,
         state.wing_boxes,
+        mount,
     )
     specs = surface_specs(v, fam, state)
     lay = solve_layout(specs, ctx)
@@ -341,9 +353,7 @@ def _attempt(
         if lay.capped_fins
         else state.notes
     )
-    return finish_design(
-        ctx, specs, lay, result, v.pick["prop_direction"] == "pusher", pattern, notes
-    )
+    return finish_design(ctx, specs, lay, result, pusher, pattern, notes)
 
 
 def decode(genome: np.ndarray, req: Requirements, adjust: Adjust = NO_ADJUST) -> Design:

@@ -1,8 +1,10 @@
 """Body models for the layout: the tail-end size both body kinds share and the flat-panel body."""
 
+from collections.abc import Callable
+
 import numpy as np
 
-from aeroforge.constants import number
+from aeroforge.constants import number, numbers
 from aeroforge.facet_metrics import inradius_on_axis_m
 from aeroforge.facet_query import check_invariants
 from aeroforge.facets import facet_body
@@ -39,18 +41,14 @@ def faceted_body(
     )
 
 
-def firewall_attach(
-    body: Body, end_attach: np.ndarray, diameter_m: float, pusher: bool
-) -> np.ndarray:
-    """Where a motor attaches to a flat-panel host (the tail end for a pusher, the nose for a
-    tractor): the end itself when a firewall plate of at least mount_plate_min_frac of its full
-    radius fits there, else the nearest place inside (within mount_slide_body_frac of the body
-    length) where it does, else the place with the widest plate. The shaft then runs from there
-    to the hub. The plate is the disc of hardpoints._mount: its centre mount_plate_inset_m + half
+def _plate_scan(body: Body, diameter_m: float, pusher: bool) -> tuple[float, float, float]:
+    """(attach x [body frame], widest plate inradius [m], target inradius [m]) for a motor on a
+    flat-panel host: the first place from the end (k = 0) where a plate of at least
+    mount_plate_min_frac of its full radius fits, else the place with the widest plate (searched
+    within mount_slide_body_frac of the length). The plate centre lies mount_plate_inset_m + half
     its thickness inside the attach point."""
-    if body.facets is None:
-        return end_attach
     target = number("mount_plate_min_frac") * number("mount_plate_radius_frac") * diameter_m
+    target *= 1.0 + number("mount_plate_fit_margin_frac")
     back = number("mount_plate_inset_m") + number("mount_plate_thickness_m") / 2.0
     length = body.length_m
     steps = int(number("mount_slide_steps"))
@@ -62,10 +60,64 @@ def firewall_attach(
         x = first + sign * reach * k / steps  # plate centre, body frame
         r = inradius_on_axis_m(body.facets, x)
         if r >= target:
-            return end_attach if k == 0 else _attach_at(body, x + (back if pusher else -back))
+            return x + (back if pusher else -back), r, target
         if r > best_r:
             best_x, best_r = x, r
-    return _attach_at(body, best_x + (back if pusher else -back))
+    return best_x + (back if pusher else -back), best_r, target
+
+
+def firewall_attach(
+    body: Body, end_attach: np.ndarray, diameter_m: float, pusher: bool
+) -> np.ndarray:
+    """Where a motor attaches to a flat-panel host (the tail end for a pusher, the nose for a
+    tractor): the end itself when a firewall plate of at least mount_plate_min_frac of its full
+    radius fits there, else the nearest place inside where it does, else the place with the
+    widest plate. The shaft then runs from there to the hub."""
+    if body.facets is None:
+        return end_attach
+    x, _, _ = _plate_scan(body, diameter_m, pusher)
+    end_x = body.length_m if pusher else 0.0
+    if abs(x - end_x) <= number("facet_geom_tol_m"):
+        return end_attach
+    return _attach_at(body, x)
+
+
+def plate_fits(body: Body, diameter_m: float, pusher: bool) -> bool:
+    """A firewall plate of at least mount_plate_min_frac of its full radius fits the host's end
+    region (within mount_slide_body_frac of the length)."""
+    if body.facets is None:
+        return True
+    _, widest, target = _plate_scan(body, diameter_m, pusher)
+    return widest >= target
+
+
+def prop_end_family(
+    fam: Family, build: Callable[[Family], Body], diameter_m: float, pusher: bool
+) -> Family:
+    """fam with the end of the body that hosts a motor made just big enough for its firewall plate
+    (a bigger tail-end size for a pusher, a blunt nose for a tractor), tried up the ladder
+    prop_end_ladder_frac; fam itself when the plate fits already or no rung helps. `build` makes
+    the host body from a family."""
+    if plate_fits(build(fam), diameter_m, pusher):
+        return fam
+    shape = fam.shape
+    ladder = numbers("prop_end_ladder_frac")
+    if pusher:  # a bigger end first, then a flat cap (a pointed tail ignores the end size)
+        rungs = [
+            shape.model_copy(update={"tail_end_size_frac": r})
+            for r in ladder
+            if r > shape.tail_end_size_frac
+        ]
+        rungs += [
+            shape.model_copy(update={"tail": "flat", "tail_end_size_frac": r}) for r in ladder
+        ]
+    else:
+        rungs = [shape.model_copy(update={"nose": "blunt"})] if shape.nose != "blunt" else []
+    for rung in rungs:
+        trial = fam.model_copy(update={"shape": rung})
+        if plate_fits(build(trial), diameter_m, pusher):
+            return trial
+    return fam
 
 
 def _attach_at(body: Body, x_body_m: float) -> np.ndarray:

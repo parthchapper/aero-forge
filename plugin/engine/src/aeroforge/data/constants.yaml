@@ -240,6 +240,12 @@ mount_bolt_d_m: {value: 0.003, unit: m, source: "M3 motor bolts"}
 mount_plate_min_frac: {value: 0.5, unit: "-", source: "U2 assumed smallest firewall radius / full radius worth bolting a motor to (>= 10 mm of a 20 mm plate)"}
 mount_slide_steps: {value: 40, unit: count, source: "U2 positions tried along the axis (layout.firewall_attach) when a flat-panel pusher host is too slim at its end for a firewall plate"}
 mount_slide_body_frac: {value: 0.25, unit: "-", source: "U2 farthest the firewall (motor and shaft start) sits forward of a slim flat-panel end, as a share of the host length"}
+prop_end_ladder_frac: {value: [0.3, 0.45, 0.6, 0.8, 1.0], unit: "-", source: "U2 follow-up: tail-end sizes (share of the widest section) tried in turn until a pusher's motor plate fits a flat-panel tail"}
+mount_plate_fit_margin_frac: {value: 0.1, unit: "-", source: "U2 follow-up assumed: the decoder sizes a motor end for a plate this much over the minimum, so the thickness and the mesh sag do not cost the fit"}
+pod_radius_max_length_frac: {value: 0.25, unit: "-", source: "U2 follow-up assumed: a flat-panel pod is made no fatter than this share of its length (fineness 2) to hold its motor plate"}
+prop_grow_factor: {value: 1.2, unit: "-", source: "U2 follow-up assumed section scale step when a flat-panel host is too slim for its motor plate"}
+prop_grow_steps: {value: 6, unit: "-", source: "U2 follow-up: section scale steps tried for a flat-panel host's motor plate"}
+prop_body_grow_max: {value: 1.5, unit: "-", source: "U2 follow-up assumed: a flat-panel centre body is widened at most this factor (length kept) to hold its motor plate"}
 mount_bolt_count: {value: 4, unit: count, source: "typical outrunner cross mount"}
 bay_frame_wall_m: {value: 0.002, unit: m, source: "assumed bay frame wall (open-top tray around each box)"}
 hatch_thickness_m: {value: 0.0015, unit: m, source: "assumed hatch outline frame thickness"}

@@ -10,13 +10,12 @@ from aeroforge.layout import (
     boxes_in_wing,
     host_end,
     place_prop,
-    prop_diameter,
 )
 from aeroforge.models import ControlSurface, Design, Propulsor, Spar, Surface, Vec3
 from aeroforge.planform import Planform, SurfaceGenes, joined_sweep_deg
+from aeroforge.pod_fit import prop_diameter
+from aeroforge.prop_end import PROP_COUNT
 from aeroforge.shapes import component_points, prop_points
-
-PROP_COUNT = {"centre": 1, "pods": 2, "centre_pods": 3}
 
 
 class LayoutError(RuntimeError):

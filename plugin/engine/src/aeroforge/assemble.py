@@ -39,6 +39,7 @@ class Context:
     fin_scale: float = 1.0
     anchor: Anchor | None = None
     wing_boxes: bool = False  # the boxes ride in surface0, not in the centre body
+    pod_mount: tuple[float, bool] | None = None  # (prop diameter, pusher) a pod's motor needs
 
 
 @dataclass(frozen=True)
@@ -273,7 +274,12 @@ def _build_one(
 def _pod(g0: SurfaceGenes, s0: Planform, ctx: Context, placed: Placed) -> tuple[Body | None, bool]:
     """Right pod on surface0 with surface0's chord there registered as a pod root; failed flag."""
     placement = place_pod(
-        (s0.sections[0], s0.sections[1]), ctx.fam, ctx.req, ctx.genes, ctx.pod_y_bounds
+        (s0.sections[0], s0.sections[1]),
+        ctx.fam,
+        ctx.req,
+        ctx.genes,
+        ctx.pod_y_bounds,
+        ctx.pod_mount,
     )
     if placement is None:
         return None, True

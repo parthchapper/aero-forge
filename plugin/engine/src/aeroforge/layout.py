@@ -11,6 +11,7 @@ from aeroforge.facet_query import fit_scale
 from aeroforge.faceted_body import faceted_body, tail_radius_frac
 from aeroforge.facets import FacetError, axis_rise_m, facet_body
 from aeroforge.models import Body, Box, Family, Propulsor, Requirements, Section, Vec3
+from aeroforge.pod_fit import pod_for_prop
 from aeroforge.shapes import axis_z_at_x, body_axis_z, body_radius_frac, inside_loft
 
 
@@ -99,6 +100,8 @@ def _faceted_fit(
     # wall margin a smooth body keeps (it also leaves room for the hatch above the boxes)
     t = corners[:, 0] / length_m
     corners[:, 2] -= axis_rise_m(t, fam.shape, length_m, fam.body_tail_upsweep_deg)
+        "hatch_thickness_m"
+    )  # the hatch lies on the top boxes
     return fit_scale(poly, corners) * (1.0 + number("body_wall_margin_frac"))
 
 
@@ -275,19 +278,13 @@ def boxes_in_wing(
     return tuple(boxes)
 
 
-def prop_diameter(req: Requirements, count: int) -> float:
-    """Diameter [m] from static thrust share and disc loading."""
-    thrust = number("static_thrust_to_weight") * req.mtow_kg * number("gravity_m_s2")
-    area = thrust / count / number("prop_disc_loading_n_m2")
-    return float(np.sqrt(4 * area / np.pi))
-
-
 def place_pod(
     inner: tuple[Section, Section],
     fam: Family,
     req: Requirements,
     genes: dict[str, float],
     y_bounds: tuple[float, float],
+    mount: tuple[float, bool] | None = None,
 ) -> tuple[Body, float] | None:
     """Right pod within y_bounds on the line of surface0's inner panel, and its panel fraction.
 
@@ -302,7 +299,7 @@ def place_pod(
     s = (float(np.clip(y_want, y_lo, y_hi)) - root[1]) / (outer[1] - root[1])
     le = root + s * (outer - root)
     length = genes["pod_length_frac"] * req.ref_length_m
-    radius = length / (2 * fam.body_fineness)
+    fam, radius = pod_for_prop(fam, length, length / (2 * fam.body_fineness), mount)
     nose = (float(le[0] - genes["pod_x_frac"] * length), float(le[1]), float(le[2]))
     if fam.shape.style == "faceted":
         body = faceted_body(fam, length, (radius, radius), "pod")
@@ -380,18 +377,3 @@ def place_prop(
         diameter_m=diameter_m,
         pusher=pusher,
     )
-
-
-def pod_y_bounds(
-    genes: dict[str, float], fam: Family, req: Requirements, body_half_width_m: float, pattern: str
-) -> tuple[float, float]:
-    """Allowed right-pod centre y range [m] (clear of body, props and span limit)."""
-    pod_r = genes["pod_length_frac"] * req.ref_length_m / (2 * fam.body_fineness)
-    clear, margin = number("pod_body_clearance_m"), number("prop_clearance_m")
-    lo = body_half_width_m + pod_r + clear
-    hi = req.span_max_m / 2 - pod_r - clear
-    if pattern != "centre":
-        d = prop_diameter(req, 3 if pattern == "centre_pods" else 2)
-        lo = max(lo, d / 2 + (d / 2 + margin if pattern == "centre_pods" else margin / 2))
-        hi = min(hi, req.span_max_m / 2 - d / 2 - clear)
-    return lo, hi
