@@ -26,39 +26,37 @@ def _body_roots(
     ]
 
 
-def _usable_and_shift(ctx: Context, le: float, te: float) -> tuple[float, float]:
-    """(usable height [m], the chord's axis lift that the rise is not responsible for [m]): the
-    share of the smallest half-height over the chord a root may use, and the difference of the axis
-    height across the chord less the difference the present rise makes."""
+def _terms(ctx: Context, roots: list[tuple[float, float]]) -> list[tuple[np.ndarray, float, float]]:
+    """Per root chord: (length fractions of its two ends, usable height [m], the axis lift across
+    the chord that the rise is not responsible for [m]). The usable height is the share of the
+    smallest half-height over the chord a root may use; the lift not due to the rise is the axis
+    height difference across the chord less the present rise's. Computed once per call: they do
+    not depend on where the rise would start."""
     body, shape = ctx.body, ctx.fam.shape
-    nose = body.nose_m[0]
-    half_h = axis_half_height_m(body.facets, le - nose, te - nose)
-    t = np.array([le - nose, te - nose]) / body.length_m
-    start = body.rise_x_frac
-    rise = axis_rise_between_m(t, shape, body.length_m, body.tail_upsweep_deg, start)
-    lift = axis_z_at_x(body, te) - axis_z_at_x(body, le)
-    return number("root_z_usable_frac") * half_h, float(lift - (rise[1] - rise[0]))
+    nose, usable_frac = body.nose_m[0], number("root_z_usable_frac")
+    out = []
+    for le, te in roots:
+        t = np.array([le - nose, te - nose]) / body.length_m
+        rise = axis_rise_between_m(t, shape, body.length_m, body.tail_upsweep_deg, body.rise_x_frac)
+        lift = axis_z_at_x(body, te) - axis_z_at_x(body, le)
+        half_h = axis_half_height_m(body.facets, le - nose, te - nose)
+        out.append((t, usable_frac * half_h, float(lift - (rise[1] - rise[0]))))
+    return out
 
 
-def _reach(ctx: Context, le: float, te: float, start_frac: float | None) -> float:
+def _reach(ctx: Context, term: tuple[np.ndarray, float, float], start_frac: float | None) -> float:
     """Reach of a root chord [m] (as assemble.root_reach_m) were the rise to start at start_frac."""
+    t, usable, shift = term
     body = ctx.body
-    usable, shift = _usable_and_shift(ctx, le, te)
-    t = np.array([le - body.nose_m[0], te - body.nose_m[0]]) / body.length_m
     rise = axis_rise_between_m(t, ctx.fam.shape, body.length_m, body.tail_upsweep_deg, start_frac)
     return usable - abs(shift + float(rise[1] - rise[0])) / 2.0
 
 
-def _flat_reach(ctx: Context, le: float, te: float) -> float:
-    """Reach of a root chord with no rise at all."""
-    usable, shift = _usable_and_shift(ctx, le, te)
-    return usable - abs(shift) / 2.0
-
-
-def _floor_m(ctx: Context, le: float, te: float) -> float:
+def _floor_m(term: tuple[np.ndarray, float, float]) -> float:
     """Lowest reach [m] the rise may leave a root: zero, or the root's own reach without the rise
     when that is already negative (the rise must not make it worse)."""
-    return min(0.0, _flat_reach(ctx, le, te)) - number("facet_geom_tol_m")
+    _, usable, shift = term
+    return min(0.0, usable - abs(shift) / 2.0) - number("facet_geom_tol_m")
 
 
 def root_over_rise(specs: dict[int, SurfaceGenes], lay: Layout, ctx: Context) -> bool:
@@ -68,7 +66,7 @@ def root_over_rise(specs: dict[int, SurfaceGenes], lay: Layout, ctx: Context) ->
     if ctx.body.facets is None:
         return any(root_reach_m(ctx.body, le, te) < 0.0 for le, te in roots)
     return any(
-        _reach(ctx, le, te, ctx.body.rise_x_frac) < _floor_m(ctx, le, te) for le, te in roots
+        _reach(ctx, term, ctx.body.rise_x_frac) < _floor_m(term) for term in _terms(ctx, roots)
     )
 
 
@@ -76,10 +74,9 @@ def rise_start_frac(specs: dict[int, SurfaceGenes], lay: Layout, ctx: Context) -
     """Length fraction of the earliest rise start (from the widest station on, in rise_start_steps
     steps) at which no body-hosted root chord is lifted out of the body; 1 when none is. A
     flat-panel body only."""
-    shape = ctx.fam.shape
-    roots = _body_roots(specs, lay, ctx)
-    lo, steps = shape.max_section_x_frac, int(number("rise_start_steps"))
+    terms = _terms(ctx, _body_roots(specs, lay, ctx))
+    lo, steps = ctx.fam.shape.max_section_x_frac, int(number("rise_start_steps"))
     for start in np.linspace(lo, 1.0, steps + 1):
-        if all(_reach(ctx, le, te, float(start)) >= _floor_m(ctx, le, te) for le, te in roots):
+        if all(_reach(ctx, term, float(start)) >= _floor_m(term) for term in terms):
             return float(start)
     return 1.0
