@@ -208,16 +208,6 @@ def test_internals_are_complete_on_random_faceted_bodies(
         assert not missing(d, req.recovery, hardpoints(d, req.recovery))
 
 
-# U2 audit H2 / H3: a motor plate under half its nominal radius and a hatch under a quarter of its
-# bay are misfits, no longer passes. The honest rate on flat-panel bodies is now 24-41 % of designs
-# (CHANGELOG, U2 fixes): the bar is a decision for the user, a decode fix (U5) or a new bar.
-HONEST_MISFITS = pytest.mark.xfail(
-    strict=True,
-    reason="flat-panel motor mounts are honest misfits since U2 H2 (24-41 % of designs)",
-)
-
-
-@HONEST_MISFITS
 def test_internals_are_mostly_contained_on_random_faceted_bodies(
     faceted: list[Design], req: Requirements
 ) -> None:
@@ -225,9 +215,7 @@ def test_internals_are_mostly_contained_on_random_faceted_bodies(
     assert misfits <= MISFIT_BAR * len(faceted)
 
 
-@pytest.mark.parametrize(
-    "i", [pytest.param(k, marks=HONEST_MISFITS) if k in (0, 4) else k for k in range(5)]
-)
+@pytest.mark.parametrize("i", range(5))
 def test_internals_are_contained_on_the_winner_genomes_decoded_as_faceted(i: int) -> None:
     w = json.loads((WINNERS / f"winner_{i}.json").read_text(encoding="utf-8"))
     req = Requirements.model_validate_json((WINNERS / "requirements.json").read_text("utf-8"))

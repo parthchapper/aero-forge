@@ -321,7 +321,13 @@ def test_style_family_is_respected(decoded: list[Design], genomes: np.ndarray) -
     for d, g in zip(decoded, genomes[: len(decoded)], strict=True):
         v = unpack(g)
         fam = family_of(v)
-        assert d.family == fam
+        # the decoder owns two things of a flat-panel family: the end of the shape (U2 follow-up 1:
+        # tail size, flat cap, blunt nose, for a motor plate) and where the upsweep starts
+        # (follow-up 2); everything else is the genes'
+        assert d.family.model_copy(update={"shape": fam.shape, "body_rise_x_frac": None}) == fam
+        assert d.family.body_rise_x_frac is None or d.family.shape.style == "faceted"
+        changed = {k for k, x in d.family.shape if getattr(fam.shape, k) != x}
+        assert changed <= {"nose", "tail", "tail_end_size_frac"}
         for b in d.bodies:
             fineness = b.length_m / (2 * max(b.half_width_m, b.half_height_m))
             packed = b.name == "body0" and fam.box_layout in ("side_by_side", "stacked")
@@ -329,6 +335,10 @@ def test_style_family_is_respected(decoded: list[Design], genomes: np.ndarray) -
                 # B1 (user, upgrade U0): the fineness gene is measured on the inline diameter, so
                 # a wider packed section reads at most the gene; equality holds everywhere else.
                 assert fineness <= fam.body_fineness + 1e-9
+            elif b.facets is not None and any(p.host == b.name for p in d.propulsors):
+                # U2 audit: a flat-panel host of a motor may be fatter (end sized for the plate)
+                assert fineness <= fam.body_fineness + 1e-9
+                assert fineness >= 1.0 / (2.0 * number("pod_radius_max_length_frac")) - 1e-9
             else:
                 assert abs(fineness - fam.body_fineness) < 1e-9
             assert b.section_exp == fam.body_section_exp

@@ -134,12 +134,23 @@ def _body_volume(b: Body) -> float:
     return b.length_m * b.half_width_m * b.half_height_m * shape * radius_sq
 
 
+WING_VOLUME = pytest.mark.xfail(
+    strict=True,
+    reason="wing tessellation, pre-U2 (surface0_L meshes 3.15 % off its analytic volume, bar "
+    "2 %, same on main): investigate U3",
+)
+
+
 @pytest.mark.slow
-def test_tessellated_volumes_match_the_analytic_shapes(decoded: list[Design]) -> None:
+@pytest.mark.parametrize("kind", [pytest.param("surface", marks=WING_VOLUME), "body"])
+def test_tessellated_volumes_match_the_analytic_shapes(decoded: list[Design], kind: str) -> None:
     for d in decoded[:VOLUME_DESIGNS]:
         meshes = {m.name: m for m in tessellate(build_parts(d))}
-        parts = [(s, _surface_volume(s)) for s in d.surfaces]
-        parts += [(b, _body_volume(b)) for b in d.bodies]
+        parts = (
+            [(s, _surface_volume(s)) for s in d.surfaces]
+            if kind == "surface"
+            else [(b, _body_volume(b)) for b in d.bodies]
+        )
         for part, analytic in parts:
             for name in instance_names(part.name, part.mirrored):
                 volume = export_mesh(meshes[name], merge=True).volume

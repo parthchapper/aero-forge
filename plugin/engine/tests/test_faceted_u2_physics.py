@@ -111,7 +111,9 @@ def test_the_tail_upsweep_reaches_cad_mass_and_the_aero_section(
     design, body = _upswept_design(req, upsweep_deg)
     assert body.facets is not None
     rise = q.slice_section(body.facets, body.length_m)[3]
-    law = f.axis_rise_m(np.array([1.0]), design.family.shape, body.length_m, upsweep_deg)[0]
+    law = f.axis_rise_m(
+        np.array([1.0]), design.family.shape, body.length_m, upsweep_deg, body.rise_x_frac
+    )[0]
     assert rise == pytest.approx(law, abs=1e-9)
     solid = faceted_body_solid(body, body.facets)
     box = solid.BoundingBox()
@@ -356,25 +358,31 @@ def test_every_contained_hatch_is_a_usable_one_centred_over_its_bay() -> None:
     assert contained > 0 and tiny > 0  # some hatches really are cut back, and still usable
 
 
-def _pinned(brief: str, style: str, n: int) -> tuple[Requirements, np.ndarray]:
-    gs = pin_choice(random_genomes(np.random.default_rng(PINNED_SEED), n), "body_style", style)
+def _pinned(
+    brief: str, style: str, n: int, seed: int = PINNED_SEED
+) -> tuple[Requirements, np.ndarray]:
+    gs = pin_choice(random_genomes(np.random.default_rng(seed), n), "body_style", style)
     return brief_requirements(brief), gs
 
 
-@pytest.mark.parametrize(
-    ("brief", "index", "what", "fits"),
-    [
-        ("stub", 133, "mount_prop0", True),  # pusher on a pointed tail: firewall 21 % forward
-        ("stub", 31, "servo_surface2", True),  # servo tray on a knife tail: slides along the body
-        ("small_boxes", 5, "servo_surface3", True),
-        ("small_boxes", 30, "hatch_avionics", True),  # hatch on a flat body: clipped to the roof
-        ("small_boxes", 57, "hatch_avionics", False),  # roof holds < 25 % of the bay: a misfit
-    ],
-)
+# (brief, genome index, internal, fits, seed): a motor firewall moved inside a pointed tail, servo
+# trays slid along a knife tail, a hatch clipped to a flat roof; and a genome whose roof holds less
+# than 25 % of its bay (or only off its centre), a misfit that is reported, not hidden (the genome
+# seed 20261112 / 57 fits since the U2 follow-ups)
+INTERNALS_CASES = [
+    ("stub", 133, "mount_prop0", True, PINNED_SEED),
+    ("stub", 31, "servo_surface2", True, PINNED_SEED),
+    ("small_boxes", 5, "servo_surface3", True, PINNED_SEED),
+    ("small_boxes", 30, "hatch_avionics", True, PINNED_SEED),
+    ("small_boxes", 201, "hatch_avionics", False, 4242),
+]
+
+
+@pytest.mark.parametrize(("brief", "index", "what", "fits", "seed"), INTERNALS_CASES)
 def test_the_internals_that_once_missed_a_faceted_body_fit_or_are_reported_as_misfits(
-    brief: str, index: int, what: str, fits: bool
+    brief: str, index: int, what: str, fits: bool, seed: int
 ) -> None:
-    req, genomes = _pinned(brief, "faceted", index + 1)
+    req, genomes = _pinned(brief, "faceted", index + 1, seed)
     design = decode(genomes[index], req)
     items = hardpoints(design, req.recovery)
     assert what in {it.name for it in items}
@@ -404,11 +412,7 @@ def _misfits(brief: str, style: str, n: int) -> int:
     return count
 
 
-HONEST = pytest.mark.xfail(
-    strict=True,
-    reason="flat-panel motor mounts are honest misfits since U2 H2 (24-41 % of designs)",
-)
-STYLES = [pytest.param("faceted", marks=HONEST), "smooth"]
+STYLES = ["faceted", "smooth"]
 
 
 @pytest.mark.parametrize("style", STYLES)
