@@ -74,12 +74,69 @@ def in_outline(xy: np.ndarray, xc: np.ndarray, yc: np.ndarray) -> np.ndarray:
     )
 
 
-def _inside_panel(a: Section, b: Section, xy: np.ndarray, pts: np.ndarray) -> np.ndarray:
+def _section_basis(section: Section, incidence_deg: float) -> tuple[np.ndarray, np.ndarray]:
+    """(chord vector, thickness vector) of a section [m], incidence and twist included."""
+    normal = section_normal(section.cant_deg)
+    ang = np.radians(incidence_deg + section.twist_deg)
+    cd = np.cos(ang) * X_HAT - np.sin(ang) * normal
+    td = np.sin(ang) * X_HAT + np.cos(ang) * normal
+    return section.chord_m * cd, section.chord_m * td
+
+
+def _twisted_panel(
+    a: Section, b: Section, xy: np.ndarray, pts: np.ndarray, incidence_deg: float
+) -> np.ndarray:
+    """Mask of pts inside a twisted/tilted ruled loft from a to b (Newton refinement of f)."""
+    l0, dl = np.asarray(a.le_m), np.asarray(b.le_m) - np.asarray(a.le_m)
+    u0, v0 = _section_basis(a, incidence_deg)
+    u1, v1 = _section_basis(b, incidence_deg)
+    du, dv = u1 - u0, v1 - v0
+    m0 = a.chord_m * section_normal(a.cant_deg)
+    dm = b.chord_m * section_normal(b.cant_deg) - m0
+    q = pts - l0
+    qa, qb, qc = -_cross_yz(dl, dm), _cross_yz(q, dm) - _cross_yz(dl, m0), _cross_yz(q, m0)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        root = -(qb + np.copysign(np.sqrt(qb * qb - 4.0 * qa * qc), qb)) / 2.0
+        seeds = (root / qa, qc / root)
+    out = np.zeros(len(pts), dtype=bool)
+    for f_init in seeds:
+        f = np.where(np.isfinite(f_init), f_init, 0.5)
+        for _ in range(4):
+            u, v = u0 + f[:, None] * du, v0 + f[:, None] * dv
+            w = np.cross(u, v)
+            dw = np.cross(du, v) + np.cross(u, dv)
+            r = q - f[:, None] * dl
+            g = np.einsum("ij,ij->i", r, w)
+            dg = -np.einsum("j,ij->i", dl, w) + np.einsum("ij,ij->i", r, dw)
+            f = np.where(np.abs(dg) > 1e-15, f - g / np.where(np.abs(dg) > 1e-15, dg, 1.0), f)
+        ok = np.isfinite(f) & (f >= 0.0) & (f <= 1.0)
+        fs = np.where(ok, f, 0.0)[:, None]
+        r, u, v = q - fs * dl, u0 + fs * du, v0 + fs * dv
+        w = np.cross(u, v)
+        wn = np.linalg.norm(w, axis=1)
+        ok &= np.abs(np.einsum("ij,ij->i", r, w)) <= 1e-9 * np.maximum(wn, 1.0)
+        uu, uv, vv = (np.einsum("ij,ij->i", p, s) for p, s in ((u, u), (u, v), (v, v)))
+        ru, rv = np.einsum("ij,ij->i", r, u), np.einsum("ij,ij->i", r, v)
+        det = uu * vv - uv * uv
+        safe = np.where(np.abs(det) > 1e-18, det, 1.0)
+        out |= (
+            ok
+            & (np.abs(det) > 1e-18)
+            & in_outline(xy, (vv * ru - uv * rv) / safe, (uu * rv - uv * ru) / safe)
+        )
+    return out
+
+
+def _inside_panel(
+    a: Section, b: Section, xy: np.ndarray, pts: np.ndarray, incidence_deg: float = 0.0
+) -> np.ndarray:
     """Mask of pts inside the ruled loft from section a to b.
 
     A loft point is L(f) + xc C(f) x_hat + yc M(f) with L, C, M linear in f, so the spanwise
     fraction f of a point solves a quadratic (its yz offset from L(f) is parallel to M(f)).
     """
+    if incidence_deg != 0.0 or a.twist_deg != 0.0 or b.twist_deg != 0.0:
+        return _twisted_panel(a, b, xy, pts, incidence_deg)
     l0 = np.asarray(a.le_m)
     dl = np.asarray(b.le_m) - l0
     m0 = a.chord_m * section_normal(a.cant_deg)
@@ -104,14 +161,18 @@ def _inside_panel(a: Section, b: Section, xy: np.ndarray, pts: np.ndarray) -> np
 
 
 def inside_loft(
-    sections: tuple[Section, ...], xy: np.ndarray, pts: np.ndarray, mirrored: bool
+    sections: tuple[Section, ...],
+    xy: np.ndarray,
+    pts: np.ndarray,
+    mirrored: bool,
+    incidence_deg: float = 0.0,
 ) -> np.ndarray:
     """Mask of pts inside the ruled loft through sections (and its y-mirror when mirrored)."""
     out = np.zeros(len(pts), dtype=bool)
     probes = (pts, pts * MIRROR_Y) if mirrored else (pts,)
     for a, b in pairwise(sections):
         for p in probes:
-            out |= _inside_panel(a, b, xy, p)
+            out |= _inside_panel(a, b, xy, p, incidence_deg)
     return out
 
 

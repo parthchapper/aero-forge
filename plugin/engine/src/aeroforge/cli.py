@@ -337,7 +337,7 @@ def _search_run(args: argparse.Namespace) -> tuple[dict[str, object], int]:
         summary = verify_cmd(args.folder, args.history, args.workers)
     else:
         out = args.out or args.brief.parent / "demo"
-        summary = demo_cmd(
+        return demo_cmd(
             args.brief, args.runs, out, args.budget, args.seed, args.workers, args.randomness
         )
     return summary, EXIT_OK

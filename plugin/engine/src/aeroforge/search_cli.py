@@ -61,8 +61,11 @@ def read_history(path: Path) -> np.ndarray:
     """Descriptors in a history.jsonl (empty when the file does not exist)."""
     if not path.is_file():
         return np.zeros((0, DESC_SIZE))
-    rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
-    return np.array([r["desc"] for r in rows]).reshape(-1, DESC_SIZE)
+    try:
+        rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
+        return np.array([r["desc"] for r in rows]).reshape(-1, DESC_SIZE)
+    except (OSError, ValueError, KeyError) as exc:
+        raise SpecError(f"{path}: {exc}") from exc
 
 
 def append_history(path: Path, entry: dict[str, object]) -> None:
@@ -207,6 +210,7 @@ def search_payload(
         "d_min": result.d_min,
         "s_min": result.s_min,
         "brief_hash": brief_hash(b),
+        "critic_strangeness_weight": knob("knob_critic_strangeness_weight", result.randomness),
         "funnel": funnel(result),
         "finalists": [finalist_entry(k, s, req) for k, s in enumerate(result.finalists)],
     }
@@ -302,9 +306,16 @@ def run_verify(
 ) -> tuple[dict[str, object], dict[str, tuple[Candidate, Design | None]]]:
     """Tier 2 on every finalist (ordered); check.json per finalist; accepted ones kept."""
     b, req = load_folder(folder)
-    payload_in = json.loads((folder / FINALISTS_FILE).read_text(encoding="utf-8"))
-    finalists = payload_in["finalists"]
+    try:
+        payload_in = json.loads((folder / FINALISTS_FILE).read_text(encoding="utf-8"))
+        finalists = payload_in["finalists"]
+    except (OSError, ValueError, KeyError) as exc:
+        raise SpecError(f"{folder / FINALISTS_FILE}: {exc} (run search first)") from exc
     r = payload_randomness(payload_in, folder / FINALISTS_FILE)
+    if not finalists:
+        empty: dict[str, object] = {"finalists": [], "passing": [], "order": [], "fallback": True}
+        write_json(folder / VERIFIED_FILE, empty)
+        return empty, {}
     genomes = np.array([f["genome"] for f in finalists]).reshape(len(finalists), -1)
     fn = functools.partial(verify_candidate, brief=b, req=req)
     checked = list(pool.map(fn, genomes, chunksize=1))

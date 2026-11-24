@@ -40,13 +40,16 @@ def _moved(d: Design, names: tuple[str, ...], dx_m: float) -> Design:
 
 
 def _fits(d: Design) -> bool:
-    """Every box inside its host and boxes on one host apart by at least box_gap_m along x."""
+    """Every box inside its host and boxes on one host apart by at least box_gap_m on some axis."""
     if not all(box_points_inside(d, b).all() for b in d.boxes):
         return False
     gap = number("box_gap_m")
     for i, a in enumerate(d.boxes):
         for b in d.boxes[i + 1 :]:
-            apart = abs(a.centre_m[0] - b.centre_m[0]) - (a.size_m[0] + b.size_m[0]) / 2
+            apart = max(
+                abs(a.centre_m[k] - b.centre_m[k]) - (a.size_m[k] + b.size_m[k]) / 2
+                for k in range(3)
+            )
             if a.host == b.host and apart < gap - GAP_TOL_M:
                 return False
     return True

@@ -3,9 +3,10 @@
 import numpy as np
 
 from aeroforge.constants import number
+from aeroforge.genetable import DecodeError
 
 
-class FacetError(ValueError):
+class FacetError(DecodeError, ValueError):
     """A faceted body cannot be built from the request (impossible plan or non-convex cell)."""
 
 

@@ -12,6 +12,7 @@ from aeroforge.airfoil import naca_outline
 from aeroforge.constants import number, numbers
 from aeroforge.models import Body, Design, Frozen, Recovery, Section, Surface, Vec3
 from aeroforge.shapes import (
+    MIRROR_Y,
     X_HAT,
     body_axis_z,
     in_outline,
@@ -315,10 +316,11 @@ def inside_part(design: Design, name: str, pts: np.ndarray) -> np.ndarray:
     """Mask of pts inside the outer mould of component `name` (body or surface, both instances)."""
     for b in design.bodies:
         if b.name == name:
-            return inside_body(b, pts)
+            hit = inside_body(b, pts)
+            return hit | inside_body(b, pts * MIRROR_Y) if b.mirrored else hit
     for s in design.surfaces:
         if s.name == name:
-            return inside_loft(s.sections, outline(s), pts, s.mirrored)
+            return inside_loft(s.sections, outline(s), pts, s.mirrored, s.incidence_deg)
     raise KeyError(f"no component {name!r}")
 
 

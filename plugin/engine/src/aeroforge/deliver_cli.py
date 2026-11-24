@@ -135,6 +135,8 @@ def _write_cad(folder: Path, parts: dict[str, cq.Solid], meshes: list[PartMesh])
 
 def _finalist_dir(folder: Path, fid: str) -> Path:
     """finalists/<fid>/ of a verified design dir (SpecError when verify left no design there)."""
+    if not fid or Path(fid).name != fid or fid in (".", ".."):
+        raise SpecError(f"invalid finalist id {fid!r}")
     target = folder / FINALISTS_DIR / fid
     if not (target / DESIGN_FILE).is_file():
         raise SpecError(f"{target / DESIGN_FILE} missing (run verify; ids are in verified.json)")

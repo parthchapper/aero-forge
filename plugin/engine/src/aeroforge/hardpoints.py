@@ -16,7 +16,7 @@ from aeroforge.internals import (
     surface_items,
 )
 from aeroforge.models import Box, Design, Propulsor, Recovery
-from aeroforge.shapes import body_radius_frac
+from aeroforge.shapes import body_axis_z, body_radius_frac
 
 Z_HAT = np.array([0.0, 0.0, 1.0])
 
@@ -143,9 +143,10 @@ def _recovery(design: Design, recovery: Recovery) -> Internal:
     z = float(np.mean([b.centre_m[2] for b in design.boxes]))
     body = next((b for b in design.bodies if b.name == host), None)
     if body is not None:
-        r = float(body_radius_frac(body, np.array([(x - body.nose_m[0]) / body.length_m]))[0])
+        t_x = np.array([(x - body.nose_m[0]) / body.length_m])
+        r = float(body_radius_frac(body, t_x)[0])
         width = min(width, 2.0 * number("recovery_fill_frac") * r * body.half_width_m)
-        z = body.nose_m[2]
+        z = float(body_axis_z(body, t_x)[0])
     base = Internal(
         name="recovery",
         item="recovery",

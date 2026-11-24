@@ -163,11 +163,13 @@ def _converged(a: Guess, b: Guess) -> bool:
 
 
 def _aitken(x0: float, x1: float, x2: float) -> float:
-    """Aitken extrapolation of a monotone, linearly converging sequence; x2 when it is not."""
+    """Aitken extrapolation of a monotone, linearly converging sequence; x2 when it is not or
+    would overshoot non-positive."""
     d1, d2 = x1 - x0, x2 - x1
     if d1 == 0.0 or not 0.0 < d2 / d1 < 1.0:
         return x2
-    return x2 - d2 * d2 / (d2 - d1)
+    ext = x2 - d2 * d2 / (d2 - d1)
+    return ext if ext > 0.0 else x2
 
 
 def _accelerate(x0: Guess, x1: Guess, x2: Guess) -> Guess:

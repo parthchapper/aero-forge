@@ -153,7 +153,12 @@ def check_stall_order(x: Inputs) -> CheckResult:
     if not x.aero.stall_order:
         raise CheckError("stall order needs the tier-2 evaluation")
     span_max = number("stall_order_span_frac_max", "checks")
-    first = min((so.fore_ratio - so.other_ratio) / so.fore_ratio for so in x.aero.stall_order)
+    first = min(
+        min(-1.0, (so.fore_ratio - so.other_ratio) / max(abs(so.other_ratio), 1.0))
+        if so.fore_ratio <= 0.0
+        else (so.fore_ratio - so.other_ratio) / max(so.fore_ratio, abs(so.other_ratio))
+        for so in x.aero.stall_order
+    )
     peak = max(so.peak_span_frac for so in x.aero.stall_order)
     margins = {"foremost_first": first, "peak_inboard": (span_max - peak) / span_max}
     return _result("stall_order", margins, {"peak_span_frac": peak})

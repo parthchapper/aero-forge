@@ -13,7 +13,7 @@ from aeroforge.geom import GeometryError, build_parts
 from aeroforge.mesh import PartMesh, export_mesh, glb_bytes, tessellate, write_stls
 from aeroforge.models import Body, Design, Requirements, Surface, instance_names
 from aeroforge.render import render_png
-from aeroforge.shapes import body_radius_frac, section_normal
+from aeroforge.shapes import X_HAT, body_radius_frac, section_incidence_deg, section_normal
 
 CAD_SAMPLE = 100
 CAD_SUCCESS_FLOOR = 0.98
@@ -95,30 +95,43 @@ def _cross_yz(u: np.ndarray, v: np.ndarray) -> float:
     return float(u[1] * v[2] - u[2] * v[1])
 
 
-def _outline_moments(s: Surface) -> tuple[float, float]:
-    """(area, first moment about the chord line) of the unit-chord outline polygon."""
+def _outline_moments(s: Surface) -> tuple[float, float, float]:
+    """(area, x-moment, y-moment) of the unit-chord outline polygon about the leading edge."""
     xy = naca_outline(
         s.camber_frac, s.camber_loc_frac, s.tc, int(number("airfoil_points_per_side"))
     )
     x, y = xy[:, 0], xy[:, 1]
     x1, y1 = np.roll(x, -1), np.roll(y, -1)
     cross = x * y1 - x1 * y
-    return float(cross.sum() / 2), float(((y + y1) * cross).sum() / 6)
+    return (
+        float(cross.sum() / 2),
+        float(((x + x1) * cross).sum() / 6),
+        float(((y + y1) * cross).sum() / 6),
+    )
+
+
+def _section_uv(s: Surface, sec: object) -> tuple[np.ndarray, np.ndarray]:
+    """(chord vector, thickness vector) [m] of one section, incidence and twist included."""
+    normal = section_normal(sec.cant_deg)  # type: ignore[attr-defined]
+    ang = np.radians(section_incidence_deg(s, sec))  # type: ignore[arg-type]
+    cd = np.cos(ang) * X_HAT - np.sin(ang) * normal
+    td = np.sin(ang) * X_HAT + np.cos(ang) * normal
+    return sec.chord_m * cd, sec.chord_m * td  # type: ignore[attr-defined]
 
 
 def _surface_volume(s: Surface) -> float:
-    """Exact volume of the ruled loft L(f) + xc C(f) x + yc M(f): |J| = C |(dL + yc dM) x M|."""
-    area, moment = _outline_moments(s)
+    """Exact volume of ruled loft L(f) + xc U(f) + yc V(f) via Gauss quadrature on |J|."""
+    area, mx, my = _outline_moments(s)
     nodes, weights = np.polynomial.legendre.leggauss(GAUSS_POINTS)
     total = 0.0
     for a, b in pairwise(s.sections):
         dl = np.subtract(b.le_m, a.le_m)
-        m0 = a.chord_m * section_normal(a.cant_deg)
-        dm = b.chord_m * section_normal(b.cant_deg) - m0
+        u0, v0 = _section_uv(s, a)
+        u1, v1 = _section_uv(s, b)
+        du, dv = u1 - u0, v1 - v0
         for node, weight in zip((nodes + 1) / 2, weights / 2, strict=True):
-            m = m0 + node * dm
-            chord = a.chord_m + node * (b.chord_m - a.chord_m)
-            total += weight * chord * (_cross_yz(dl, m) * area + _cross_yz(dm, m) * moment)
+            w = np.cross(u0 + node * du, v0 + node * dv)
+            total += weight * float(np.dot(dl, w) * area + np.dot(du, w) * mx + np.dot(dv, w) * my)
     return abs(total)
 
 

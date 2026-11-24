@@ -191,6 +191,28 @@ def _raster_top(d: Design) -> float:
     x, y = np.meshgrid(xs, ys)
     inside = _in_quads(x, y, quads) if quads else np.zeros(x.shape, dtype=bool)
     for b in d.bodies:
+        if b.facets is not None:
+            v = np.asarray(b.facets.vertices_m)
+            tris = [
+                np.array(
+                    [
+                        [v[f[0], 0], v[f[0], 1]],
+                        [v[f[i], 0], v[f[i], 1]],
+                        [v[f[i + 1], 0], v[f[i + 1], 1]],
+                    ]
+                )
+                for f in b.facets.faces
+                for i in range(1, len(f) - 1)
+            ]
+            for y0 in [b.nose_m[1], -b.nose_m[1]] if b.mirrored else [b.nose_m[1]]:
+                shifted = [
+                    np.vstack(
+                        [t + np.array([b.nose_m[0], y0]), t[-1:] + np.array([b.nose_m[0], y0])]
+                    )
+                    for t in tris
+                ]
+                inside |= _in_quads(x, y, shifted)
+            continue
         t = (x - b.nose_m[0]) / b.length_m
         for y0 in [b.nose_m[1], -b.nose_m[1]] if b.mirrored else [b.nose_m[1]]:
             width = b.half_width_m * body_radius_frac(b, t)
@@ -241,6 +263,28 @@ def _raster_front(d: Design) -> float:
     y, z = np.meshgrid(ys, zs)
     inside = _in_quads(y, z, bands)
     for b in d.bodies:
+        if b.facets is not None:
+            v = np.asarray(b.facets.vertices_m)
+            tris = [
+                np.array(
+                    [
+                        [v[f[0], 1], v[f[0], 2]],
+                        [v[f[i], 1], v[f[i], 2]],
+                        [v[f[i + 1], 1], v[f[i + 1], 2]],
+                    ]
+                )
+                for f in b.facets.faces
+                for i in range(1, len(f) - 1)
+            ]
+            for y0 in [b.nose_m[1], -b.nose_m[1]] if b.mirrored else [b.nose_m[1]]:
+                shifted = [
+                    np.vstack(
+                        [t + np.array([y0, b.nose_m[2]]), t[-1:] + np.array([y0, b.nose_m[2]])]
+                    )
+                    for t in tris
+                ]
+                inside |= _in_quads(y, z, shifted)
+            continue
         for y0 in [b.nose_m[1], -b.nose_m[1]] if b.mirrored else [b.nose_m[1]]:
             j0, j1 = np.searchsorted(ys, [y0 - b.half_width_m, y0 + b.half_width_m])
             # the tail cone's axis rises linearly at tail_upsweep_deg (written out here, not

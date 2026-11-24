@@ -57,9 +57,13 @@ class Brief(Frozen):
 
     @model_validator(mode="after")
     def _one_mission(self) -> "Brief":
-        """Exactly one of endurance_min and range_km."""
+        """Exactly one of endurance_min and range_km, and optional speeds bracketing cruise."""
         if (self.endurance_min is None) == (self.range_km is None):
             raise ValueError("give exactly one of endurance_min and range_km")
+        if self.dash_speed_ms is not None and self.dash_speed_ms < self.cruise_speed_ms:
+            raise ValueError("dash_speed_ms must be >= cruise_speed_ms")
+        if self.stall_max_ms is not None and self.stall_max_ms >= self.cruise_speed_ms:
+            raise ValueError("stall_max_ms must be < cruise_speed_ms")
         return self
 
 

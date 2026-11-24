@@ -19,7 +19,9 @@ def box_points_inside(d: Design, box: Box) -> np.ndarray:
     xy = naca_outline(
         s.camber_frac, s.camber_loc_frac, s.tc, int(number("airfoil_points_per_side"))
     )
-    return inside_loft(s.sections[: s.n_structural], xy, pts, mirrored=s.mirrored)
+    return inside_loft(
+        s.sections[: s.n_structural], xy, pts, mirrored=s.mirrored, incidence_deg=s.incidence_deg
+    )
 
 
 def box_margin(d: Design) -> float:
@@ -85,12 +87,17 @@ def shaft_margin(d: Design) -> float:
     for p in d.propulsors:
         pts = _shaft_points(p)
         for b in d.bodies:
-            pts = pts[~inside_body(b, pts)]
+            hit = inside_body(b, pts)
+            if b.mirrored:
+                hit |= inside_body(b, pts * MIRROR_Y)
+            pts = pts[~hit]
         inside = np.zeros(len(pts), dtype=bool)
         for s in d.surfaces:
             if s.name != p.host:
                 xy = naca_outline(s.camber_frac, s.camber_loc_frac, s.tc, n_af)
-                inside |= inside_loft(s.sections, xy, pts, mirrored=s.mirrored)
+                inside |= inside_loft(
+                    s.sections, xy, pts, mirrored=s.mirrored, incidence_deg=s.incidence_deg
+                )
         hits, total = hits + int(inside.sum()), total + len(pts)
     return -hits / total if total else 0.0
 

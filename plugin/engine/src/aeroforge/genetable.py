@@ -13,6 +13,10 @@ class GenomeError(ValueError):
     """Genome vector has the wrong length or values outside [0, 1]."""
 
 
+class DecodeError(RuntimeError):
+    """The decode repair loop could not reach a valid design."""
+
+
 @dataclass(frozen=True)
 class Gene:
     """One genes.yaml row."""

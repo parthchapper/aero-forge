@@ -111,7 +111,7 @@ def trim_point(
     alpha = float(sm.alpha_deg[0] + da)
     a_span = sm.alpha_deg[1] - sm.alpha_deg[0]
     profile = sm.profile_n[s, 0] + da * (sm.profile_n[s, 1] - sm.profile_n[s, 0]) / a_span
-    profile += d_eff * sm.d_profile_n[s]
+    profile = max(profile, 0.0) + abs(d_eff) * max(sm.d_profile_n[s], 0.0)
     cl = n_load * f.weight_n / q_s
     surf = (
         sm.surface_force_n[s, 0]

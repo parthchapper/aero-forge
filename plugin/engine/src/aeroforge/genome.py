@@ -14,17 +14,13 @@ from aeroforge.assemble import (
 )
 from aeroforge.constants import number
 from aeroforge.finish import finish_design
-from aeroforge.genetable import Genes, family_of, genome_length, surface_count, unpack
+from aeroforge.genetable import DecodeError, Genes, family_of, genome_length, surface_count, unpack
 from aeroforge.layout import boxes_in_wing, pod_y_bounds
 from aeroforge.models import Adjust, Body, Design, Family, Requirements, Spar
 from aeroforge.planform import SurfaceGenes, added_fin_spec, fit_tc
 from aeroforge.shift import Anchor, Growth, centre_body, growth
 
 NO_ADJUST = Adjust()
-
-
-class DecodeError(RuntimeError):
-    """The decode repair loop could not reach a valid design."""
 
 
 @dataclass(frozen=True)
@@ -34,7 +30,6 @@ class State:
     body_on: bool
     pods_on: bool
     active: frozenset[int]
-    tc: tuple[float, ...]
     s0_taper: float
     joins_off: frozenset[int]
     rehosted: frozenset[int]
@@ -54,7 +49,6 @@ def _initial_state(v: Genes, fam: Family, adjust: Adjust) -> State:
         body_on=v.pick["body_on"] == "on",
         pods_on=v.pick["pods_on"] == "on",
         active=active,
-        tc=(fam.tc,) * (n + 1),
         s0_taper=fam.taper,
         joins_off=frozenset(),
         rehosted=frozenset(),
@@ -126,7 +120,7 @@ def _spec(v: Genes, fam: Family, state: State, i: int, targets: set[int]) -> Sur
         tip_style="square" if i in targets else fam.tip_style,
         camber_frac=0.0 if fin else fam.camber_frac,
         camber_loc_frac=fam.camber_loc_frac,
-        tc=state.tc[i],
+        tc=fam.tc,
         control_frac=v.num[p + "control_frac"],
         join_target=_join_target(v, fam, state, i),
         root_chord_scale=v.num[p + "root_chord_scale"],
@@ -140,7 +134,7 @@ def surface_specs(v: Genes, fam: Family, state: State) -> dict[int, SurfaceGenes
     genes = [i for i in state.active if i < n]
     targets = {t for i in genes if (t := _join_target(v, fam, state, i)) is not None}
     return {
-        i: _spec(v, fam, state, i, targets) if i < n else added_fin_spec(fam, state.tc[i], i)
+        i: _spec(v, fam, state, i, targets) if i < n else added_fin_spec(fam, fam.tc, i)
         for i in sorted(state.active)
     }
 
@@ -193,18 +187,13 @@ def _repair(
     specs: dict[int, SurfaceGenes], lay: Layout, ctx: Context, state: State
 ) -> State | dict[int, tuple[float, Spar]]:
     """Next repair state, or the spar fits when the layout is final."""
-    if (
-        ctx.body is not None
-        and ctx.body.tail_upsweep_deg > 0.0
-        and _root_over_rise(specs, lay, ctx)
-    ):
-        notes = (*state.notes, "tail upsweep dropped: a root chord sits on the rising tail cone")
-        return replace(state, flat_tail=True, notes=notes)
+    if ctx.body and ctx.body.tail_upsweep_deg > 0.0 and _root_over_rise(specs, lay, ctx):
+        note = "tail upsweep dropped: a root chord sits on the rising tail cone"
+        return replace(state, flat_tail=True, notes=(*state.notes, note))
     if lay.failed_joins:
+        note = f"joins dropped (too swept): {sorted(lay.failed_joins)}"
         return replace(
-            state,
-            joins_off=state.joins_off | set(lay.failed_joins),
-            notes=(*state.notes, f"joins dropped (too swept): {sorted(lay.failed_joins)}"),
+            state, joins_off=state.joins_off | set(lay.failed_joins), notes=(*state.notes, note)
         )
     if lay.pod_failed:
         return replace(
@@ -215,6 +204,8 @@ def _repair(
     total = sum(surface_area(lay.planforms[i], g)[1] for i, g in specs.items())
     if abs(total - ctx.lifting_area_m2) > number("area_check_rel_tol") * ctx.lifting_area_m2:
         joined = {i for i, g in specs.items() if g.join_target is not None}
+        if not joined:
+            raise DecodeError("area solve did not reach lifting_area_m2")
         return replace(
             state,
             joins_off=state.joins_off | joined,

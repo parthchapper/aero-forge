@@ -1,9 +1,9 @@
 {
- "mtow_kg": 3.193795445398947,
- "lifting_area_m2": 0.5669229601914889,
+ "mtow_kg": 3.2025947468298277,
+ "lifting_area_m2": 0.56845119542147,
  "span_max_m": 2.2,
- "ref_length_m": 1.204708586376893,
- "battery_wh": 70.69962157089441,
+ "ref_length_m": 1.2063312398669628,
+ "battery_wh": 71.56944723559869,
  "payload_box_m": [
   0.18,
   0.1,
@@ -49,6 +49,6 @@
    "gust_ms": 5.0
   }
  ],
- "baseline_cruise_ld_tier1": 14.605582002132408,
- "baseline_cruise_ld_tier2": 15.262291278818317
+ "baseline_cruise_ld_tier1": 14.584928297466684,
+ "baseline_cruise_ld_tier2": 15.237484419073354
 }

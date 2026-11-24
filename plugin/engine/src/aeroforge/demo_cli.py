@@ -12,12 +12,12 @@ from pathlib import Path
 from aeroforge.brief import effective_randomness, load_brief
 from aeroforge.candidate import Candidate
 from aeroforge.constants import number
-from aeroforge.derive import derive
+from aeroforge.derive import InfeasibleError, derive
 from aeroforge.gallery import Tile, gallery_html
 from aeroforge.geom import GeometryError, build_parts
 from aeroforge.mesh import MeshError, tessellate
 from aeroforge.models import Design
-from aeroforge.physics_cli import BRIEF_FILE, REQUIREMENTS_FILE
+from aeroforge.physics_cli import BRIEF_FILE, EXIT_CHECK_FAILED, EXIT_OK, REQUIREMENTS_FILE
 from aeroforge.render import render_png
 from aeroforge.search_cli import (
     HISTORY_FILE,
@@ -151,11 +151,19 @@ def demo_cmd(
     seed: int,
     workers: int,
     randomness: float | None,
-) -> Summary:
+) -> tuple[Summary, int]:
     """`demo`: derive, then `runs` chained searches; gallery of the winners with check rows."""
     b = load_brief(brief_path)
     r = effective_randomness(b, randomness)
-    req = derive(b)
+    try:
+        req = derive(b)
+    except InfeasibleError as exc:
+        return {
+            "cmd": "demo",
+            "feasible": False,
+            "check": exc.check,
+            "error": str(exc),
+        }, EXIT_CHECK_FAILED
     (out / "tiles").mkdir(parents=True, exist_ok=True)
     shutil.copyfile(brief_path, out / BRIEF_FILE)
     text = req.model_dump_json(indent=1)
@@ -178,4 +186,4 @@ def demo_cmd(
         ],
         "wall_time_s": round(time.perf_counter() - start, 1),
         "gallery": str(page),
-    }
+    }, EXIT_OK

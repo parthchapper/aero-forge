@@ -138,7 +138,7 @@ def part_table(
 
 def _script_json(payload: object) -> str:
     """JSON safe inside a <script> element."""
-    return json.dumps(payload, separators=(",", ":")).replace("</", "<\\/")
+    return json.dumps(payload, separators=(",", ":")).replace("<", "\\u003c")
 
 
 def viewer_html(title: str, glb: bytes, table: dict[str, dict[str, object]]) -> str:
