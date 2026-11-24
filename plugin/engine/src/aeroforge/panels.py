@@ -1,4 +1,4 @@
-"""Panel cut list of flat-panel bodies (SPEC §11): panels.csv rows and the panels.svg layout.
+"""Panel cut list of flat-panel bodies and wings (SPEC §11): panels.csv rows, the panels.svg layout.
 
 Pure data in, text out; the writer is `write_panels`. A row is one physical sheet: neighbouring
 faces in one plane are merged (facet_pieces), so a body of N faces has N or fewer rows. Sheets are
@@ -12,7 +12,8 @@ import numpy as np
 
 from aeroforge.constants import number
 from aeroforge.facet_pieces import pieces
-from aeroforge.models import Body, Design
+from aeroforge.facet_wing import wing_polyhedron
+from aeroforge.models import Body, Design, Polyhedron, Surface
 from aeroforge.panels_layout import pack_shelves
 
 CSV_HEADER = "id,part,count,area_m2,edge_lengths_m,neighbour_ids,bevel_deg"
@@ -35,15 +36,25 @@ class Panel:
 
 
 def body_panels(body: Body) -> list[Panel]:
-    """Panels (physical sheets) of one faceted body, empty for a smooth one: neighbouring faces in
-    one plane are one sheet, so the rows are the pieces to cut. Bevel = angle [deg] between the
-    outward normals of a sheet and its neighbour across an edge."""
-    poly = body.facets
-    if poly is None:
+    """Panels (physical sheets) of one faceted body, empty for a smooth one."""
+    return [] if body.facets is None else _panels(body.name, body.mirrored, body.facets)
+
+
+def surface_panels(surface: Surface) -> list[Panel]:
+    """Panels of one faceted wing (airfoil_facets > 0), empty for a smooth one; the two halves of
+    a mirrored surface are the same sheets (count 2)."""
+    if not surface.airfoil_facets:
         return []
+    return _panels(surface.name, surface.mirrored, wing_polyhedron(surface))
+
+
+def _panels(name: str, mirrored: bool, poly: Polyhedron) -> list[Panel]:
+    """Physical sheets of a flat-faced part: neighbouring faces in one plane are one sheet, so the
+    rows are the pieces to cut. Bevel = angle [deg] between the outward normals of a sheet and
+    its neighbour across an edge."""
     v = np.asarray(poly.vertices_m)
     sheets = pieces(poly)
-    ids = [f"{body.name}-F{k + 1:03d}" for k in range(len(sheets))]
+    ids = [f"{name}-F{k + 1:03d}" for k in range(len(sheets))]
     panels = []
     for k, sheet in enumerate(sheets):
         corners = v[list(sheet.loop)]
@@ -54,8 +65,8 @@ def body_panels(body: Body) -> list[Panel]:
         panels.append(
             Panel(
                 id=ids[k],
-                part=body.name,
-                count=2 if body.mirrored else 1,
+                part=name,
+                count=2 if mirrored else 1,
                 area_m2=sheet.area_m2,
                 corners_m=corners,
                 edge_lengths_m=tuple(
@@ -70,8 +81,11 @@ def body_panels(body: Body) -> list[Panel]:
 
 
 def design_panels(design: Design) -> list[Panel]:
-    """Panels of every faceted body of the design, in body order."""
-    return [p for b in design.bodies for p in body_panels(b)]
+    """Panels of every faceted body, then every faceted wing of the design, in part order."""
+    return [
+        *(p for b in design.bodies for p in body_panels(b)),
+        *(p for s in design.surfaces for p in surface_panels(s)),
+    ]
 
 
 def panels_csv(panels: list[Panel]) -> str:
@@ -168,8 +182,8 @@ def panels_svg(panels: list[Panel]) -> str:
 
 
 def write_panels(folder: Path, design: Design) -> int:
-    """Write panels/panels.csv and panels/panels.svg for the design's faceted bodies (nothing,
-    and no stale files, for a smooth design); returns the number of panels."""
+    """Write panels/panels.csv and panels/panels.svg for the design's faceted bodies and wings
+    (nothing, and no stale files, for a smooth design); returns the number of panels."""
     target = folder / PANELS_DIR
     panels = design_panels(design)
     for name in (CSV_FILE, SVG_FILE):

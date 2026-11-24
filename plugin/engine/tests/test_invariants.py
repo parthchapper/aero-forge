@@ -8,6 +8,7 @@ import itertools
 import numpy as np
 
 from aeroforge.airfoil import local_thickness_frac
+from aeroforge.align import strict_family
 from aeroforge.constants import constant, number
 from aeroforge.faceted_body import firewall_attach
 from aeroforge.genetable import family_of, gene_table, unpack
@@ -286,7 +287,9 @@ def test_spar_is_largest_tube_fitting_the_whole_spar_line(decoded: list[Design])
     skin = number("spar_skin_thickness_m")
     for d in decoded:
         for s in d.surfaces:
-            t = local_thickness_frac(s.camber_frac, s.camber_loc_frac, s.tc, s.spar.chord_frac, 40)
+            t = local_thickness_frac(
+                s.camber_frac, s.camber_loc_frac, s.tc, s.spar.chord_frac, 40, s.airfoil_facets
+            )
             room = min(t * sec.chord_m for sec in s.sections[: s.n_structural]) - 2 * skin
             assert s.spar.od_m <= room
             assert all(od <= s.spar.od_m or od > room for od, _ in _tubes())
@@ -320,14 +323,17 @@ def test_style_family_is_respected(decoded: list[Design], genomes: np.ndarray) -
     tc_max = number("tc_max")
     for d, g in zip(decoded, genomes[: len(decoded)], strict=True):
         v = unpack(g)
-        fam = family_of(v)
+        fam = strict_family(v, family_of(v))  # strict alignment: the decoder owns the angle sets
         # the decoder owns two things of a flat-panel family: the end of the shape (U2 follow-up 1:
         # tail size, flat cap, blunt nose, for a motor plate) and where the upsweep starts
         # (follow-up 2); everything else is the genes'
         assert d.family.model_copy(update={"shape": fam.shape, "body_rise_x_frac": None}) == fam
         assert d.family.body_rise_x_frac is None or d.family.shape.style == "faceted"
         changed = {k for k, x in d.family.shape if getattr(fam.shape, k) != x}
-        assert changed <= {"nose", "tail", "tail_end_size_frac"}
+        snapped = (
+            {"linear_edges", "max_section_x_frac"} if fam.edge_alignment == "strict" else set()
+        )
+        assert changed <= {"nose", "tail", "tail_end_size_frac"} | snapped
         for b in d.bodies:
             fineness = b.length_m / (2 * max(b.half_width_m, b.half_height_m))
             packed = b.name == "body0" and fam.box_layout in ("side_by_side", "stacked")

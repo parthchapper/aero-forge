@@ -131,6 +131,12 @@ def shape_of(v: Genes) -> BodyShape:
     )
 
 
+def facets_of(v: Genes) -> int:
+    """Flat segments per side of a wing section (0 = smooth) from the airfoil_facets gene."""
+    label = v.pick["airfoil_facets"]
+    return 0 if label == "smooth" else int(label)
+
+
 def family_of(v: Genes) -> Family:
     """Design-language values from the global genes."""
     airfoil = v.pick["fam_airfoil"]
@@ -151,4 +157,6 @@ def family_of(v: Genes) -> Family:
         box_layout=v.pick["box_layout"],  # type: ignore[arg-type]
         layout=v.pick["layout"],  # type: ignore[arg-type]
         shape=shape_of(v),
+        airfoil_facets=facets_of(v),
+        edge_alignment=v.pick["edge_alignment"],  # type: ignore[arg-type]
     )

@@ -21,6 +21,7 @@ LayoutName = Literal[
     "free", "conventional", "canard", "tandem", "three_surface", "flying_wing", "joined"
 ]
 BodyStyle = Literal["smooth", "faceted"]
+EdgeAlignment = Literal["off", "soft", "strict"]
 NoseStyle = Literal["point", "chisel", "blunt"]
 TailStyle = Literal["point", "knife", "flat"]
 UnitInterval = Annotated[float, Field(ge=0.0, le=1.0)]
@@ -124,6 +125,7 @@ class BodyShape(Frozen):
     tail_flatten: float = 0.0
     tail_end_size_frac: float = 0.18
     max_section_x_frac: float = 0.41
+    linear_edges: bool = False  # U3 strict alignment: linear nose and tail radius law
 
 
 class Family(Frozen):
@@ -146,6 +148,10 @@ class Family(Frozen):
     box_layout: BoxLayout
     layout: LayoutName
     shape: BodyShape = BodyShape()
+    airfoil_facets: int = 0  # U3: flat segments per side of wing sections (0 = smooth)
+    edge_alignment: EdgeAlignment = "off"  # U3: top-view outline edges
+    edge_angles_deg: tuple[float, ...] = ()  # U3: the angle set strict alignment snapped to
+    edge_body_angles_deg: tuple[float, ...] = ()  # U3: the same for flat-panel body edges
 
 
 class Section(Frozen):
@@ -197,6 +203,7 @@ class Surface(Frozen):
     control: ControlSurface | None
     spar: Spar
     incidence_deg: float = 0.0
+    airfoil_facets: int = 0  # U3: flat segments per side of the section polygon (0 = smooth)
 
 
 class Polyhedron(Frozen):

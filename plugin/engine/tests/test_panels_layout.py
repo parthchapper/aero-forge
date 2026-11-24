@@ -4,10 +4,11 @@ import re
 
 import numpy as np
 import pytest
+from conftest import u2_random_genomes
 
 from aeroforge.brief import brief_requirements
 from aeroforge.genetable import pin_choice
-from aeroforge.genome import decode, random_genomes
+from aeroforge.genome import decode
 from aeroforge.panels import body_panels, design_panels, panels_svg
 from aeroforge.panels_layout import pack_shelves
 
@@ -51,7 +52,7 @@ def _svg_polygons(svg: str) -> list[np.ndarray]:
 @pytest.mark.parametrize("seed", [1234, 99])
 def test_the_svg_viewbox_holds_every_sheet_of_large_and_small_bodies(seed: int) -> None:
     req = brief_requirements("stub")
-    gs = pin_choice(random_genomes(np.random.default_rng(seed), 12), "body_style", "faceted")
+    gs = pin_choice(u2_random_genomes(seed, 12), "body_style", "faceted")
     for g in gs:
         d = decode(g, req)
         panels = design_panels(d)

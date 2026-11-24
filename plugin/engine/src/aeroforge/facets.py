@@ -165,8 +165,10 @@ def _radius_frac(t: np.ndarray, plan: PanelPlan, shape: BodyShape) -> np.ndarray
         max(shape.tail_end_size_frac, number("facet_tail_end_min_frac")),
     )
     blunt = number("facet_blunt_nose_size_frac") if plan.nose == "blunt" else 0.0
-    nose = blunt + (1.0 - blunt) * np.sqrt(np.clip(1.0 - (1.0 - t / m) ** 2, 0.0, None))
     u = np.clip((t - m) / (1.0 - m), 0.0, 1.0)
+    if shape.linear_edges:  # strict alignment: one straight edge on each side of the widest station
+        return np.where(t < m, blunt + (1.0 - blunt) * t / m, end + (1.0 - end) * (1.0 - u))
+    nose = blunt + (1.0 - blunt) * np.sqrt(np.clip(1.0 - (1.0 - t / m) ** 2, 0.0, None))
     return np.where(t < m, nose, end + (1.0 - end) * (1.0 + np.cos(np.pi * u)) / 2.0)
 
 

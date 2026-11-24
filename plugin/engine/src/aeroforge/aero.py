@@ -16,6 +16,7 @@ from aeroforge.airplane import (
 )
 from aeroforge.constants import number, numbers
 from aeroforge.downwash import bound_span_m, influence
+from aeroforge.facet_aero import facet_profile_drag_n
 from aeroforge.models import Design, FlightPoint, Requirements, Surface
 from aeroforge.style import wing_surfaces
 
@@ -174,7 +175,9 @@ def buildup_samples(
     hi = 2 * int(np.flatnonzero(speeds_ms == cruise_ms)[0]) + 1
     pitch = pitch_surface(d, float(ref_m[0]))
     deltas = _deflection_deltas(d, req, ref_m, pitch, out, ns)
-    profile = np.broadcast_to(np.ravel(out["D_profile"]), (n,))
+    profile = np.broadcast_to(np.ravel(out["D_profile"]), (n,)) + facet_profile_drag_n(
+        d, np.ravel(op.velocity), float(op.atmosphere.density())
+    )
     return Samples(
         speeds_ms=speeds_ms,
         alpha_deg=np.array(numbers("aero_alpha_deg")),

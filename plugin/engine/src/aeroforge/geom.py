@@ -10,6 +10,7 @@ from OCP.gp import gp_Pnt
 
 from aeroforge.constants import number
 from aeroforge.facet_query import volume_m3
+from aeroforge.facet_wing import wing_polyhedron
 from aeroforge.models import Body, Design, Polyhedron, Propulsor, Surface, instance_names
 from aeroforge.shapes import axis_sign, blade_rings, body_rings, body_stations, section_outline
 
@@ -43,7 +44,11 @@ def checked_solid(part: str, shape: cq.Shape) -> cq.Solid:
 
 
 def surface_solid(surface: Surface) -> cq.Solid:
-    """Ruled loft through all sections (exact for straight-tapered panels)."""
+    """Ruled loft through all sections (exact for straight-tapered panels); a faceted surface is
+    built from its own flat faces."""
+    if surface.airfoil_facets:
+        poly = wing_polyhedron(surface)
+        return polyhedron_solid(surface.name, np.asarray(poly.vertices_m), poly.faces)
     n_af = int(number("airfoil_points_per_side"))
     loft = BRepOffsetAPI_ThruSections(True, True)
     # OCC's compatibility pass re-seats the seams of strongly canted sections and twists the
@@ -57,19 +62,27 @@ def surface_solid(surface: Surface) -> cq.Solid:
     return checked_solid(surface.name, cq.Shape.cast(loft.Shape()))
 
 
-def faceted_body_solid(body: Body, poly: Polyhedron) -> cq.Solid:
-    """Solid of a flat-panel body: each face a polygon wire -> planar face, sewn into a shell."""
-    v = np.asarray(poly.vertices_m) + np.asarray(body.nose_m)
-    faces = [
+def polyhedron_solid(
+    part: str, vertices_m: np.ndarray, faces: tuple[tuple[int, ...], ...]
+) -> cq.Solid:
+    """Solid of flat faces: each face a polygon wire -> planar face, sewn into a shell."""
+    cq_faces = [
         cq.Face.makeFromWires(
-            cq.Wire.makePolygon([cq.Vector(*map(float, v[i])) for i in face], close=True)
+            cq.Wire.makePolygon([cq.Vector(*map(float, vertices_m[i])) for i in face], close=True)
         )
-        for face in poly.faces
+        for face in faces
     ]
-    shell = cq.Shell.makeShell(faces)
-    if len(shell.Faces()) != len(faces):
-        raise GeometryError(body.name, f"shell has {len(shell.Faces())} of {len(faces)} faces")
-    return checked_solid(body.name, cq.Solid.makeSolid(shell))
+    shell = cq.Shell.makeShell(cq_faces)
+    if len(shell.Faces()) != len(cq_faces):
+        raise GeometryError(part, f"shell has {len(shell.Faces())} of {len(cq_faces)} faces")
+    return checked_solid(part, cq.Solid.makeSolid(shell))
+
+
+def faceted_body_solid(body: Body, poly: Polyhedron) -> cq.Solid:
+    """Solid of a flat-panel body (its polyhedron moved to the body's nose point)."""
+    return polyhedron_solid(
+        body.name, np.asarray(poly.vertices_m) + np.asarray(body.nose_m), poly.faces
+    )
 
 
 def body_solid(body: Body) -> cq.Solid:
@@ -120,12 +133,19 @@ def prop_solid(prop: Propulsor) -> cq.Solid:
 
 
 def exact_volumes_m3(design: Design) -> dict[str, float]:
-    """Closed-form volumes [m^3] of the flat-panel bodies by part name (right / centre instance)."""
-    return {
+    """Closed-form volumes [m^3] of the flat-panel bodies and faceted wings by part name (right /
+    centre instance)."""
+    out = {
         instance_names(b.name, b.mirrored)[-1]: volume_m3(b.facets)
         for b in design.bodies
         if b.facets is not None
     }
+    out |= {
+        instance_names(s.name, s.mirrored)[-1]: volume_m3(wing_polyhedron(s))
+        for s in design.surfaces
+        if s.airfoil_facets
+    }
+    return out
 
 
 def build_parts(design: Design) -> dict[str, cq.Solid]:

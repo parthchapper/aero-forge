@@ -4,6 +4,7 @@ import numpy as np
 
 from aeroforge.assemble import Context, Layout, host_name, surface_area
 from aeroforge.constants import constant, number, numbers
+from aeroforge.edges import alignment_misses
 from aeroforge.faceted_body import firewall_attach
 from aeroforge.layout import (
     boxes_in_body,
@@ -62,6 +63,7 @@ def _surface_model(
         projected_area_m2=projected,
         control=control,
         spar=spar,
+        airfoil_facets=g.airfoil_facets,
     )
 
 
@@ -130,6 +132,10 @@ def finish_design(
         _surface_model(specs[i], lay.planforms[i], fits[i], ctx, lay) for i in sorted(specs)
     )
     bodies = tuple(b for b in (ctx.body, lay.pod) if b is not None)
+    notes = (
+        *notes,
+        *(f"surface{i}: {lay.planforms[i].note}" for i in sorted(specs) if lay.planforms[i].note),
+    )
     bare = Design(
         family=ctx.fam,
         lifting_area_m2=ctx.lifting_area_m2,
@@ -142,7 +148,10 @@ def finish_design(
     obstacles = np.vstack(list(component_points(bare, include_props=False).values()))
     props = _props(ctx, lay, pusher, pattern, obstacles)
     design = bare.model_copy(
-        update={"propulsors": props, "notes": (*notes, *_firewall_notes(bare, props))}
+        update={
+            "propulsors": props,
+            "notes": (*notes, *_firewall_notes(bare, props), *miss_notes(bare)),
+        }
     )
     # Mirroring keeps x, so the obstacle cloud plus one instance per prop holds the nose-most point.
     ring = int(number("body_ring_points"))
@@ -151,6 +160,21 @@ def finish_design(
         *(float(prop_points(p, ring)[:, 0].min()) for p in design.propulsors),
     )
     return translate_x(design, -x_min)
+
+
+def miss_notes(design: Design) -> tuple[str, ...]:
+    """One note per part with outline edges off the strict angle set (measured on the finished
+    design, so nothing the snapping missed goes unreported)."""
+    if design.family.edge_alignment != "strict":
+        return ()
+    worst: dict[str, float] = {}
+    for e, gap in alignment_misses(design):
+        worst[e.part] = max(worst.get(e.part, 0.0), gap)
+    return tuple(
+        f"strict alignment: {part} has outline edges up to {gap:.1f} deg off the angle set "
+        "(no allowed angle fits its proportions)"
+        for part, gap in sorted(worst.items())
+    )
 
 
 def _firewall_notes(design: Design, props: tuple[Propulsor, ...]) -> tuple[str, ...]:

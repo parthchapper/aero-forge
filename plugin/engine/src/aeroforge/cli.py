@@ -83,6 +83,14 @@ def _parser() -> argparse.ArgumentParser:
         help="pin the body_style gene of every genome (default: drawn at random)",
     )
     gallery.add_argument(
+        "--pin",
+        action="append",
+        default=[],
+        metavar="GENE=LABEL",
+        help="pin a choice gene of every genome (repeatable); airfoil_facets=faceted gives the "
+        "tiles 3, 4, ... 8 facets in turn",
+    )
+    gallery.add_argument(
         "--top-by-style", action="store_true", help="half top style scores of a pool, half random"
     )
     tune = sub.add_parser("tune-style", help="fit style weights to marks.json files")
@@ -187,16 +195,29 @@ def _style_scores(genomes: np.ndarray, req: Requirements, model: StyleModel) -> 
     return out
 
 
+def _pinned(genomes: np.ndarray, pins: dict[str, str]) -> np.ndarray:
+    """genomes with each choice gene in pins set to its label; airfoil_facets=faceted cycles the
+    counts 3..8 over the rows."""
+    out = genomes
+    for gene, label in pins.items():
+        if (gene, label) == ("airfoil_facets", "faceted"):
+            out = np.array(
+                [pin_choice(r[None, :], gene, str(3 + i % 6))[0] for i, r in enumerate(out)]
+            )
+        else:
+            out = pin_choice(out, gene, label)
+    return out
+
+
 def _picks(
-    n: int, seed: int, req: Requirements, top_by_style: bool, body_style: str | None = None
+    n: int, seed: int, req: Requirements, top_by_style: bool, pins: dict[str, str] | None = None
 ) -> tuple[np.ndarray, list[float | None]]:
-    """Genomes to render and their style scores (None for a plain random gallery); body_style
-    pins that gene of every drawn genome."""
+    """Genomes to render and their style scores (None for a plain random gallery); pins sets
+    those choice genes of every drawn genome."""
     rng = np.random.default_rng(seed)
 
     def draw(count: int) -> np.ndarray:
-        g = random_genomes(rng, count)
-        return g if body_style is None else pin_choice(g, "body_style", body_style)
+        return _pinned(random_genomes(rng, count), pins or {})
 
     if not top_by_style:
         return draw(n), [None] * n
@@ -209,13 +230,13 @@ def _picks(
 
 
 def _gallery(
-    n: int, seed: int, out: Path, brief: str, top_by_style: bool, body_style: str | None
+    n: int, seed: int, out: Path, brief: str, top_by_style: bool, pins: dict[str, str]
 ) -> dict[str, object]:
     """Render n genomes into out/gallery.html."""
     tiles_dir = out / "tiles"
     tiles_dir.mkdir(parents=True, exist_ok=True)
     req = brief_requirements(brief)
-    genomes, tile_scores = _picks(n, seed, req, top_by_style, body_style)
+    genomes, tile_scores = _picks(n, seed, req, top_by_style, pins)
     tiles = [
         _tile(i, g, req, tiles_dir, s)
         for i, (g, s) in enumerate(zip(genomes, tile_scores, strict=True))
@@ -229,7 +250,7 @@ def _gallery(
         "brief": brief,
         "n": n,
         "top_by_style": top_by_style,
-        "body_style": body_style,
+        "pins": pins,
         "built": n - len(failed),
         "failed": failed,
         "gallery": str(page),
@@ -337,9 +358,10 @@ def _run(args: argparse.Namespace) -> tuple[dict[str, object], int]:
     if args.cmd == "gallery":
         if args.n < 1:
             raise InputError("--n must be >= 1")
-        return _gallery(
-            args.n, args.seed, args.out, args.brief, args.top_by_style, args.body_style
-        ), EXIT_OK
+        pins = dict(p.split("=", 1) for p in args.pin)
+        if args.body_style is not None:
+            pins["body_style"] = args.body_style
+        return _gallery(args.n, args.seed, args.out, args.brief, args.top_by_style, pins), EXIT_OK
     out = args.out or Path(str(files("aeroforge.data").joinpath("style.yaml")))
     return _tune(args.marks, args.brief, out), EXIT_OK
 

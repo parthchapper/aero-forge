@@ -4,7 +4,7 @@ from itertools import product
 
 import numpy as np
 
-from aeroforge.airfoil import naca_outline
+from aeroforge.airfoil import wing_outline
 from aeroforge.constants import constant, number, numbers
 from aeroforge.facet_metrics import end_radius_m
 from aeroforge.facet_query import fit_scale
@@ -232,8 +232,12 @@ def _contour_band(
     root: Section, fam: Family, tc: float, x0_m: float, x1_m: float
 ) -> tuple[float, float]:
     """(highest lower-surface z, lowest upper-surface z) [m] of the root section over x0_m..x1_m."""
-    xy = naca_outline(
-        fam.camber_frac, fam.camber_loc_frac, tc, int(number("airfoil_points_per_side"))
+    xy = wing_outline(
+        fam.camber_frac,
+        fam.camber_loc_frac,
+        tc,
+        int(number("airfoil_points_per_side")),
+        fam.airfoil_facets,
     )
     split = len(xy) // 2
     upper, lower = xy[: split + 1][::-1], xy[split:]
@@ -261,7 +265,7 @@ def boxes_in_wing(
     """
     root, semi_y_m = sections[0], sections[-1].le_m[1]
     n_af = int(number("airfoil_points_per_side"))
-    xy = naca_outline(fam.camber_frac, fam.camber_loc_frac, tc, n_af)
+    xy = wing_outline(fam.camber_frac, fam.camber_loc_frac, tc, n_af, fam.airfoil_facets)
     n_lattice = int(number("box_lattice_points"))
     sizes = box_sizes(req)
     if _stack_length(sizes) > number("wing_box_chord_frac") * root.chord_m:

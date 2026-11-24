@@ -10,6 +10,7 @@ from aeroforge.aero import AeroError
 from aeroforge.checks import CheckError, CheckReport, evaluate
 from aeroforge.constants import constant
 from aeroforge.descriptor import DescriptorError, desc
+from aeroforge.edges import soft_style_bonus
 from aeroforge.finish import LayoutError
 from aeroforge.genome import DecodeError, decode
 from aeroforge.models import Adjust, Brief, Design, Requirements
@@ -86,7 +87,7 @@ def _checked(
         add_fin=report.added_fin,
         incidence_deg=report.incidence_deg,
     )
-    style = score(features(design), packaged_model())
+    style = min(1.0, score(features(design), packaged_model()) + soft_style_bonus(design))
     return Candidate(g, x, style, report, adjust, None), design
 
 

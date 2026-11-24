@@ -4,6 +4,7 @@ upsweep of a flat-panel body starts at a station behind which no body-hosted roo
 
 import numpy as np
 import pytest
+from conftest import u2_random_genomes
 
 from aeroforge.assemble import root_reach_m
 from aeroforge.brief import brief_requirements
@@ -13,7 +14,7 @@ from aeroforge.faceted_body import plate_fits
 from aeroforge.facets import axis_rise_between_m, facet_body
 from aeroforge.fit_report import fit_rows
 from aeroforge.genetable import pin_choice
-from aeroforge.genome import decode, random_genomes
+from aeroforge.genome import decode
 from aeroforge.hardpoints import containment_failures, hardpoints
 from aeroforge.models import Body, Design
 from aeroforge.pod_fit import prop_diameter
@@ -28,7 +29,7 @@ MISFIT_BAR = 0.01
 @pytest.fixture(scope="module")
 def faceted_stub() -> list[Design]:
     req = brief_requirements("stub")
-    genomes = pin_choice(random_genomes(np.random.default_rng(SEED), N), "body_style", "faceted")
+    genomes = pin_choice(u2_random_genomes(SEED, N), "body_style", "faceted")
     return [decode(g, req) for g in genomes]
 
 
@@ -129,7 +130,7 @@ def test_no_body_hosted_root_is_lifted_out_by_a_kept_rise(faceted_stub: list[Des
 def test_a_smooth_body_never_moves_its_rise_start() -> None:
     """The 0.3 baseline: a smooth body drops an upsweep that a root sits on, as before."""
     req = brief_requirements("stub")
-    genomes = pin_choice(random_genomes(np.random.default_rng(SEED), 60), "body_style", "smooth")
+    genomes = pin_choice(u2_random_genomes(SEED, 60), "body_style", "smooth")
     for g in genomes:
         for b in decode(g, req).bodies:
             assert b.rise_x_frac is None

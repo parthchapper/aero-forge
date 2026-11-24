@@ -7,6 +7,7 @@ import aerosandbox as asb
 import numpy as np
 import pytest
 import trimesh
+from conftest import u2_random_genomes
 
 import aeroforge.facet_hatch as fh
 import aeroforge.facet_query as q
@@ -15,7 +16,7 @@ from aeroforge.checks import evaluate
 from aeroforge.constants import number
 from aeroforge.facet_pieces import pieces
 from aeroforge.genetable import pin_choice
-from aeroforge.genome import decode, random_genomes
+from aeroforge.genome import decode
 from aeroforge.geom import GeometryError, build_parts, exact_volumes_m3
 from aeroforge.hardpoints import containment_failures, hardpoints
 from aeroforge.internals import missing
@@ -38,7 +39,7 @@ WINNERS = Path(__file__).parent / "fixtures" / "winners"
 
 
 def _faceted(n: int, req: Requirements) -> list[Design]:
-    genomes = pin_choice(random_genomes(np.random.default_rng(SEED), n), "body_style", "faceted")
+    genomes = pin_choice(u2_random_genomes(SEED, n), "body_style", "faceted")
     return [decode(g, req) for g in genomes]
 
 
@@ -184,9 +185,7 @@ def test_the_panel_writer_writes_faceted_designs_and_nothing_for_smooth_ones(
 ) -> None:
     assert write_panels(tmp_path, faceted[0]) == len(design_panels(faceted[0]))
     assert {p.name for p in (tmp_path / "panels").iterdir()} == {"panels.csv", "panels.svg"}
-    smooth = decode(
-        pin_choice(random_genomes(np.random.default_rng(SEED), 1), "body_style", "smooth")[0], req
-    )
+    smooth = decode(pin_choice(u2_random_genomes(SEED, 1), "body_style", "smooth")[0], req)
     assert write_panels(tmp_path, smooth) == 0
     assert not list((tmp_path / "panels").iterdir())
 
@@ -195,9 +194,7 @@ def test_the_fidelity_statement_names_the_unmodelled_chine_drag(
     faceted: list[Design], req: Requirements
 ) -> None:
     assert "not modelled" in _faceted_fidelity(faceted[0])[0]
-    smooth = decode(
-        pin_choice(random_genomes(np.random.default_rng(SEED), 1), "body_style", "smooth")[0], req
-    )
+    smooth = decode(pin_choice(u2_random_genomes(SEED, 1), "body_style", "smooth")[0], req)
     assert _faceted_fidelity(smooth) == []
 
 

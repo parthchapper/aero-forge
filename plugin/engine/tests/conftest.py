@@ -63,6 +63,7 @@ def genomes(population: int) -> np.ndarray:
 
 LEGACY_GENES = Path(__file__).parent / "fixtures" / "baseline_pre_step10" / "genes_pre_step10.yaml"
 GENES_0_3 = Path(__file__).parent / "fixtures" / "baseline_0.3" / "genes_0.3.yaml"
+GENES_U2 = Path(__file__).parent / "fixtures" / "baseline_u2" / "genes_u2.yaml"
 LEGACY_GENOMES = 200
 
 
@@ -83,6 +84,13 @@ def legacy_random_genomes(seed: int, n: int, table_path: Path = LEGACY_GENES) ->
                 physical[gene["name"]] = gene["lo"] + x * (gene["hi"] - gene["lo"])
         rows.append(encode(physical))
     return np.array(rows)
+
+
+def u2_random_genomes(seed: int, n: int) -> np.ndarray:
+    """The first n random genomes the U2 table (99 genes, smooth wings) drew for seed, re-encoded
+    into today's table (the U3 genes at their defaults): the very designs the U1 / U2 tests were
+    calibrated and pinned on, which the 101-gene table would otherwise replace."""
+    return legacy_random_genomes(seed, n, GENES_U2)
 
 
 @pytest.fixture(scope="session")

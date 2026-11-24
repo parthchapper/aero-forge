@@ -4,7 +4,7 @@ from itertools import pairwise
 
 import numpy as np
 
-from aeroforge.airfoil import naca_outline
+from aeroforge.airfoil import wing_outline
 from aeroforge.constants import number, numbers
 from aeroforge.facet_query import inside_faceted, sample_points, slice_section
 from aeroforge.models import Body, Design, Propulsor, Section, Surface, instance_names
@@ -28,7 +28,9 @@ def section_incidence_deg(surface: Surface, section: Section) -> float:
 
 def section_outline(section: Section, surface: Surface, n_per_side: int) -> np.ndarray:
     """Closed airfoil outline of one section [m], shape (2 n - 1, 3)."""
-    xy = naca_outline(surface.camber_frac, surface.camber_loc_frac, surface.tc, n_per_side)
+    xy = wing_outline(
+        surface.camber_frac, surface.camber_loc_frac, surface.tc, n_per_side, surface.airfoil_facets
+    )
     normal = section_normal(section.cant_deg)
     # incidence turns the section nose-up about its leading edge (asb WingXSec twist convention)
     i = np.radians(section_incidence_deg(surface, section))
@@ -39,11 +41,22 @@ def section_outline(section: Section, surface: Surface, n_per_side: int) -> np.n
     )
 
 
+def _densified(outline: np.ndarray, per_side: int) -> np.ndarray:
+    """Closed polygon outline with each edge cut into about per_side / (edges per side) parts."""
+    edges = len(outline) - 1
+    parts = max(1, int(np.ceil(2 * per_side / edges)))
+    t = np.linspace(0.0, 1.0, parts + 1)[None, :, None]  # both ends: the sample set mirrors exactly
+    a, b = outline[:-1, None, :], outline[1:, None, :]
+    return np.vstack([(1 - t) * a + t * b]).reshape(-1, 3)
+
+
 def surface_points(surface: Surface, n_per_side: int, spacing_m: float) -> np.ndarray:
     """Outline points of the right/centre instance, blended between sections every spacing_m [m],
     plus the trailing edge (both ends of the outline) every spacing_m / sample_te_refine: on a
     swept panel the spanwise step is a longer x gap there, where a pusher hub slides against it."""
     outlines = [section_outline(s, surface, n_per_side) for s in surface.sections]
+    if surface.airfoil_facets:  # a polygon's long edges would hide a prop disc crossing them
+        outlines = [_densified(o, n_per_side) for o in outlines]
     refine = int(number("sample_te_refine"))
     blocks = []
     for a, b, sa, sb in zip(
