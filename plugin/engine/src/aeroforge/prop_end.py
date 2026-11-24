@@ -34,7 +34,7 @@ def centre_body_for_prop(
     def build_at(k: float, f: Family) -> Body:
         base = centre_body(req, f, length_frac, min_length_m, g, holds_boxes)[0]
         axes = (base.half_width_m * k, base.half_height_m * k)
-        return faceted_body(f, base.length_m, axes, "body0", up)
+        return faceted_body(f, base.length_m, axes, "body0", up, f.body_rise_x_frac)
 
     found = grow_to_fit(fam, build_at, motor, number("prop_body_grow_max"))
     if found is None:

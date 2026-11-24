@@ -221,10 +221,18 @@ def panel_plan(count: int, wish: PanelPlan, shape: BodyShape) -> tuple[PanelPlan
     return best[1], best[0][0] == 0
 
 
-def axis_rise_m(t: np.ndarray, shape: BodyShape, length_m: float, upsweep_deg: float) -> np.ndarray:
-    """Height [m] of the axis at length fractions t: level to the widest station, then rising at
-    upsweep_deg. A station is shifted as a whole, so every face stays flat."""
-    run = np.clip(t - shape.max_section_x_frac, 0.0, None) * length_m
+def axis_rise_m(
+    t: np.ndarray,
+    shape: BodyShape,
+    length_m: float,
+    upsweep_deg: float,
+    rise_x_frac: float | None = None,
+) -> np.ndarray:
+    """Height [m] of the axis at length fractions t: level to the widest station (or to rise_x_frac
+    when given), then rising at upsweep_deg. A station is shifted as a whole, so every face stays
+    flat."""
+    start = shape.max_section_x_frac if rise_x_frac is None else rise_x_frac
+    run = np.clip(t - start, 0.0, None) * length_m
     return run * np.tan(np.radians(upsweep_deg))
 
 
@@ -234,6 +242,7 @@ def _rings(
     length_m: float,
     axes_m: tuple[float, float],
     upsweep_deg: float,
+    rise_x_frac: float | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Station rings, shape (S, K, 3) in the body frame, and each station's squash factor."""
     t = station_fractions(plan, shape.max_section_x_frac)
@@ -247,7 +256,7 @@ def _rings(
     poly = section_polygon(shape, plan.sides)
     y = axes_m[0] * radius[:, None] * poly[None, :, 0]
     z = axes_m[1] * radius[:, None] * (1.0 - squash[:, None]) * poly[None, :, 1]
-    z = z + axis_rise_m(t, shape, length_m, upsweep_deg)[:, None]
+    z = z + axis_rise_m(t, shape, length_m, upsweep_deg, rise_x_frac)[:, None]
     x = np.broadcast_to((t * length_m)[:, None], y.shape)
     return np.stack([x, y, z], axis=-1), squash
 
@@ -288,11 +297,12 @@ def body_polyhedron(
     length_m: float,
     axes_m: tuple[float, float],
     upsweep_deg: float = 0.0,
+    rise_x_frac: float | None = None,
 ) -> Polyhedron:
     """Closed solid of flat faces for a plan: station rings scaled to the half-width and
     half-height axes_m, the nose at the origin, length_m long. Every face is turned outward
     about the centre of the convex cell it bounds."""
-    rings, squash = _rings(plan, shape, length_m, axes_m, upsweep_deg)
+    rings, squash = _rings(plan, shape, length_m, axes_m, upsweep_deg, rise_x_frac)
     s, k = rings.shape[:2]
     no_apex = np.zeros((0, 3))
     nose_pts = no_apex if plan.nose == "blunt" else apex_points(plan.nose, rings[0], 0.0)
@@ -304,6 +314,7 @@ def body_polyhedron(
             shape,
             length_m,
             upsweep_deg,
+            rise_x_frac,
         )
         tail_pts = apex_points(plan.tail, rings[-1] - np.array([0.0, 0.0, rise[0]]), length_m)
         tail_pts = tail_pts + np.array([0.0, 0.0, rise[1]])
@@ -335,6 +346,7 @@ def facet_body(
     length_m: float,
     axes_m: tuple[float, float],
     upsweep_deg: float = 0.0,
+    rise_x_frac: float | None = None,
 ) -> Polyhedron:
     """Polyhedron of the plan the shape genes ask for (repaired by effective_plan)."""
-    return body_polyhedron(effective_plan(shape), shape, length_m, axes_m, upsweep_deg)
+    return body_polyhedron(effective_plan(shape), shape, length_m, axes_m, upsweep_deg, rise_x_frac)

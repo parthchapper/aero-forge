@@ -99,7 +99,9 @@ def _faceted_fit(
     # an upswept body is the level one sheared in z: fit the boxes relative to the axis, with the
     # wall margin a smooth body keeps (it also leaves room for the hatch above the boxes)
     t = corners[:, 0] / length_m
-    corners[:, 2] -= axis_rise_m(t, fam.shape, length_m, fam.body_tail_upsweep_deg)
+    corners[:, 2] -= axis_rise_m(
+        t, fam.shape, length_m, fam.body_tail_upsweep_deg, fam.body_rise_x_frac
+    )
     corners[corners[:, 2] > 0.0, 2] += number(
         "hatch_thickness_m"
     )  # the hatch lies on the top boxes
@@ -160,7 +162,9 @@ def size_centre_body(
     floor_m = max(length_frac * req.ref_length_m, min_length_m)
     if fam.shape.style == "faceted":
         length, axes = size_faceted_body(req, fam, floor_m, holds_boxes)
-        return faceted_body(fam, length, axes, "body0", fam.body_tail_upsweep_deg)
+        return faceted_body(
+            fam, length, axes, "body0", fam.body_tail_upsweep_deg, fam.body_rise_x_frac
+        )
     if holds_boxes:
         env, _ = arrange_boxes(box_sizes(req), fam.box_layout)
         fit = 2 ** (1 / fam.body_section_exp) * (1 + number("body_wall_margin_frac"))
@@ -188,6 +192,7 @@ def size_centre_body(
         tail_frac=tail_frac,
         tail_radius_frac=tail_radius_frac(fam),
         tail_upsweep_deg=fam.body_tail_upsweep_deg,
+        rise_x_frac=fam.body_rise_x_frac,
     )
 
 

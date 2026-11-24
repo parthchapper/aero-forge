@@ -125,9 +125,10 @@ def body_radius_frac(body: Body, t: np.ndarray) -> np.ndarray:
 
 
 def body_axis_z(body: Body, t: np.ndarray) -> np.ndarray:
-    """Axis height [m] at length fractions t: level to the tail cone, then rising at
-    tail_upsweep_deg (0 leaves the axis exactly at the nose height)."""
-    run = np.clip(np.clip(t, 0.0, 1.0) - (1.0 - body.tail_frac), 0.0, None) * body.length_m
+    """Axis height [m] at length fractions t: level to the tail cone (or to rise_x_frac), then
+    rising at tail_upsweep_deg (0 leaves the axis exactly at the nose height)."""
+    start = 1.0 - body.tail_frac if body.rise_x_frac is None else body.rise_x_frac
+    run = np.clip(np.clip(t, 0.0, 1.0) - start, 0.0, None) * body.length_m
     return body.nose_m[2] + run * np.tan(np.radians(body.tail_upsweep_deg))
 
 

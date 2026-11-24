@@ -8,7 +8,6 @@ from aeroforge.assemble import (
     Context,
     Layout,
     host_name,
-    root_reach_m,
     solve_layout,
     surface_area,
 )
@@ -20,6 +19,7 @@ from aeroforge.models import Adjust, Body, Design, Family, Requirements, Spar
 from aeroforge.planform import SurfaceGenes, added_fin_spec, fit_tc
 from aeroforge.pod_fit import pod_y_bounds, prop_diameter
 from aeroforge.prop_end import PROP_COUNT, centre_body_for_prop
+from aeroforge.rise import rise_start_frac, root_over_rise
 from aeroforge.shift import Anchor, Growth, growth
 
 NO_ADJUST = Adjust()
@@ -42,6 +42,7 @@ class State:
     rehosted: frozenset[int]
     wing_boxes: bool
     flat_tail: bool
+    rise_x_frac: float | None
     body_min_length_m: float
     shift: Growth
     notes: tuple[str, ...]
@@ -62,6 +63,7 @@ def _initial_state(v: Genes, fam: Family, adjust: Adjust) -> State:
         rehosted=frozenset(),
         wing_boxes=fam.box_layout == "wing_root",
         flat_tail=False,
+        rise_x_frac=None,
         body_min_length_m=0.0,
         shift=Growth(0.0, 0.0, adjust.body_shift_m),
         notes=(),
@@ -181,27 +183,28 @@ def _root_fixes(specs: dict[int, SurfaceGenes], lay: Layout, ctx: Context, state
     )
 
 
-def _root_over_rise(specs: dict[int, SurfaceGenes], lay: Layout, ctx: Context) -> bool:
-    """A body-hosted root chord that the tail upsweep would lift out of the body."""
-    for i, pf in lay.planforms.items():
-        root = pf.sections[0]
-        on_body = host_name(specs[i], ctx, lay.pod) == ctx.body.name
-        if on_body and root_reach_m(ctx.body, root.le_m[0], root.le_m[0] + root.chord_m) < 0.0:
-            return True
-    return False
+def _rise_start(specs: dict[int, SurfaceGenes], lay: Layout, ctx: Context, state: State) -> State:
+    """State with the tail upsweep starting just behind the rearmost body-hosted root (the rise
+    then lifts no root chord); dropped (flat tail) when that leaves no tail to rise over or the
+    start is already there."""
+    rear = rise_start_frac(specs, lay, ctx)
+    old = state.rise_x_frac
+    if rear >= number("rise_start_max_frac") or (old is not None and rear <= old + 1e-9):
+        notes = (*state.notes, "tail upsweep dropped: a root chord sits on the rising tail cone")
+        return replace(state, flat_tail=True, notes=notes)
+    notes = (
+        *state.notes,
+        f"tail upsweep starts at {rear:.0%} of the body: no root chord sits on the rise",
+    )
+    return replace(state, rise_x_frac=rear, notes=notes)
 
 
 def _repair(
     specs: dict[int, SurfaceGenes], lay: Layout, ctx: Context, state: State
 ) -> State | dict[int, tuple[float, Spar]]:
     """Next repair state, or the spar fits when the layout is final."""
-    if (
-        ctx.body is not None
-        and ctx.body.tail_upsweep_deg > 0.0
-        and _root_over_rise(specs, lay, ctx)
-    ):
-        notes = (*state.notes, "tail upsweep dropped: a root chord sits on the rising tail cone")
-        return replace(state, flat_tail=True, notes=notes)
+    if ctx.body is not None and ctx.body.tail_upsweep_deg > 0.0 and root_over_rise(specs, lay, ctx):
+        return _rise_start(specs, lay, ctx, state)
     if lay.failed_joins:
         return replace(
             state,
@@ -295,6 +298,8 @@ def _centre(
     length_frac = v.num["body_length_frac"]
     if state.flat_tail:  # a root sat on the rising tail cone: the upsweep was dropped
         fam = fam.model_copy(update={"body_tail_upsweep_deg": 0.0})
+    elif state.rise_x_frac is not None:  # the upsweep starts behind the rearmost root
+        fam = fam.model_copy(update={"body_rise_x_frac": state.rise_x_frac})
     return centre_body_for_prop(
         req,
         fam,
@@ -317,7 +322,10 @@ def _attempt(
 ) -> Design | State:
     """One decode pass: a finished design or the next repair state."""
     body, anchor, centre_fam = _centre(v, fam, req, state)
-    fam = fam.model_copy(update={"shape": centre_fam.shape})  # only the end shape is kept
+    # the end shape and the rise start are kept (a dropped upsweep stays a gene value, as before)
+    fam = fam.model_copy(
+        update={"shape": centre_fam.shape, "body_rise_x_frac": centre_fam.body_rise_x_frac}
+    )
     pattern = prop_pattern(v, state)
     half_w = body.half_width_m if body else 0.0
     pusher = v.pick["prop_direction"] == "pusher"

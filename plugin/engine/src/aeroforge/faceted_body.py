@@ -18,12 +18,17 @@ def tail_radius_frac(fam: Family) -> float:
 
 
 def faceted_body(
-    fam: Family, length_m: float, axes_m: tuple[float, float], name: str, upsweep_deg: float = 0.0
+    fam: Family,
+    length_m: float,
+    axes_m: tuple[float, float],
+    name: str,
+    upsweep_deg: float = 0.0,
+    rise_x_frac: float | None = None,
 ) -> Body:
     """Body of flat panels; its smooth-law fields give the same extent and envelope (widest
     station at nose_frac, boat-tail after it) to consumers that are not facet-aware yet."""
     m = fam.shape.max_section_x_frac
-    poly = facet_body(fam.shape, length_m, axes_m, upsweep_deg)
+    poly = facet_body(fam.shape, length_m, axes_m, upsweep_deg, rise_x_frac)
     check_invariants(poly, length_m)
     return Body(
         name=name,
@@ -37,6 +42,7 @@ def faceted_body(
         tail_frac=1.0 - m,
         tail_radius_frac=tail_radius_frac(fam),
         tail_upsweep_deg=upsweep_deg,
+        rise_x_frac=rise_x_frac,
         facets=poly,
     )
 

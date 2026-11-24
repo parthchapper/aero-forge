@@ -142,6 +142,7 @@ class Family(Frozen):
     body_tail_frac: float
     body_width_ratio: float
     body_tail_upsweep_deg: float
+    body_rise_x_frac: float | None = None  # decoder: where the tail upsweep starts (None: default)
     box_layout: BoxLayout
     layout: LayoutName
     shape: BodyShape = BodyShape()
@@ -224,6 +225,7 @@ class Body(Frozen):
     tail_frac: float
     tail_radius_frac: float
     tail_upsweep_deg: float = 0.0
+    rise_x_frac: float | None = None  # length fraction where the rise starts (None: the default)
     facets: Polyhedron | None = None
 
 
