@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from aeroforge.areas import Areas, areas
 from aeroforge.checks import CheckReport
 from aeroforge.constants import constant, load_table
+from aeroforge.fit_report import fit_rows
 from aeroforge.models import Brief, Design, Requirements
 
 ASSUMED_TABLES = ("constants", "checks")
@@ -132,6 +133,9 @@ def report_md(
         "",
         "## Decoder notes (controls the decoder dropped or moved)",
         *decoder_note_rows(design),
+        "",
+        "## Fit of internals (motor plates, hatches, servo trays)",
+        *fit_rows(design, req.recovery),
         "",
         "## Shadow areas",
         *area_rows(areas(design)),
