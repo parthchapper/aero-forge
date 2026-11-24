@@ -246,8 +246,8 @@ pod_radius_max_length_frac: {value: 0.25, unit: "-", source: "U2 follow-up assum
 prop_grow_factor: {value: 1.2, unit: "-", source: "U2 follow-up assumed section scale step when a flat-panel host is too slim for its motor plate"}
 prop_grow_steps: {value: 6, unit: "-", source: "U2 follow-up: section scale steps tried for a flat-panel host's motor plate"}
 prop_body_grow_max: {value: 1.5, unit: "-", source: "U2 follow-up assumed: a flat-panel centre body is widened at most this factor (length kept) to hold its motor plate"}
+rise_start_steps: {value: 100, unit: count, source: "U2 audit: positions between the widest station and the tail end tried for the start of a tail upsweep (rise.py)"}
 rise_start_max_frac: {value: 0.97, unit: "-", source: "U2 follow-up assumed: a tail upsweep may start no further aft than this share of the body length; behind it the upsweep is dropped"}
-rise_fit_margin_frac: {value: 0.02, unit: "-", source: "U2 follow-up assumed: the tail upsweep starts this share early of its limit so the root chord stays strictly inside the body"}
 mount_bolt_count: {value: 4, unit: count, source: "typical outrunner cross mount"}
 bay_frame_wall_m: {value: 0.002, unit: m, source: "assumed bay frame wall (open-top tray around each box)"}
 hatch_thickness_m: {value: 0.0015, unit: m, source: "assumed hatch outline frame thickness"}

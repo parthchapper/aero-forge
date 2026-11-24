@@ -230,10 +230,27 @@ def axis_rise_m(
 ) -> np.ndarray:
     """Height [m] of the axis at length fractions t: level to the widest station (or to rise_x_frac
     when given), then rising at upsweep_deg. A station is shifted as a whole, so every face stays
-    flat."""
+    flat; between two stations the axis is straight, which is exact only at the stations
+    themselves (axis_rise_between_m is the body's axis anywhere)."""
     start = shape.max_section_x_frac if rise_x_frac is None else rise_x_frac
     run = np.clip(t - start, 0.0, None) * length_m
     return run * np.tan(np.radians(upsweep_deg))
+
+
+def axis_rise_between_m(
+    t: np.ndarray,
+    shape: BodyShape,
+    length_m: float,
+    upsweep_deg: float,
+    rise_x_frac: float | None = None,
+) -> np.ndarray:
+    """Height [m] of the body's axis at length fractions t, as the flat-panel body has it: the rise
+    of each station (axis_rise_m) joined by straight lines, so a rise that starts between two
+    stations tilts the whole cell it starts in."""
+    st = station_fractions(effective_plan(shape), shape.max_section_x_frac)
+    knots = np.concatenate([[0.0], st, [1.0]])
+    rise = axis_rise_m(knots, shape, length_m, upsweep_deg, rise_x_frac)
+    return np.interp(t, knots, rise)
 
 
 def _rings(

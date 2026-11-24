@@ -184,12 +184,12 @@ def _root_fixes(specs: dict[int, SurfaceGenes], lay: Layout, ctx: Context, state
 
 
 def _rise_start(specs: dict[int, SurfaceGenes], lay: Layout, ctx: Context, state: State) -> State:
-    """State with the tail upsweep starting just behind the rearmost body-hosted root (the rise
-    then lifts no root chord); dropped (flat tail) when that leaves no tail to rise over or the
-    start is already there."""
-    rear = rise_start_frac(specs, lay, ctx)
+    """State with the tail upsweep starting at the earliest station that lifts no body-hosted root
+    chord out of the body; dropped (flat tail) when none leaves a tail to rise over or the start
+    is already there. A smooth body keeps the 0.3 rule (drop): its decode is a frozen baseline."""
     old = state.rise_x_frac
-    if rear >= number("rise_start_max_frac") or (old is not None and rear <= old + 1e-9):
+    rear = 1.0 if ctx.body.facets is None else rise_start_frac(specs, lay, ctx)
+    if rear >= number("rise_start_max_frac") or (old is not None and rear <= old):
         notes = (*state.notes, "tail upsweep dropped: a root chord sits on the rising tail cone")
         return replace(state, flat_tail=True, notes=notes)
     notes = (
