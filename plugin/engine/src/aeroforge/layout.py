@@ -9,7 +9,7 @@ from aeroforge.constants import constant, number, numbers
 from aeroforge.facet_metrics import end_radius_m
 from aeroforge.facet_query import fit_scale
 from aeroforge.faceted_body import faceted_body, tail_radius_frac
-from aeroforge.facets import FacetError, axis_rise_m, facet_body
+from aeroforge.facets import FacetError, axis_rise_between_m, facet_body
 from aeroforge.models import Body, Box, Family, Propulsor, Requirements, Section, Vec3
 from aeroforge.pod_fit import pod_for_prop
 from aeroforge.shapes import axis_z_at_x, body_axis_z, body_radius_frac, inside_loft
@@ -99,7 +99,7 @@ def _faceted_fit(
     # an upswept body is the level one sheared in z: fit the boxes relative to the axis, with the
     # wall margin a smooth body keeps (it also leaves room for the hatch above the boxes)
     t = corners[:, 0] / length_m
-    corners[:, 2] -= axis_rise_m(
+    corners[:, 2] -= axis_rise_between_m(
         t, fam.shape, length_m, fam.body_tail_upsweep_deg, fam.body_rise_x_frac
     )
     corners[corners[:, 2] > 0.0, 2] += number(
@@ -158,13 +158,18 @@ def size_centre_body(
     inline packing would need (user decision B1, upgrade U0), so side_by_side / stacked bodies
     are not lengthened by their wider packing; their section never shrinks below the box fit.
     """
-    nose_frac, tail_frac = fam.body_nose_frac, fam.body_tail_frac
     floor_m = max(length_frac * req.ref_length_m, min_length_m)
     if fam.shape.style == "faceted":
         length, axes = size_faceted_body(req, fam, floor_m, holds_boxes)
         return faceted_body(
             fam, length, axes, "body0", fam.body_tail_upsweep_deg, fam.body_rise_x_frac
         )
+    return _smooth_centre_body(req, fam, floor_m, holds_boxes)
+
+
+def _smooth_centre_body(req: Requirements, fam: Family, floor_m: float, holds_boxes: bool) -> Body:
+    """The smooth centre body (super-ellipse sections) of size_centre_body."""
+    nose_frac, tail_frac = fam.body_nose_frac, fam.body_tail_frac
     if holds_boxes:
         env, _ = arrange_boxes(box_sizes(req), fam.box_layout)
         fit = 2 ** (1 / fam.body_section_exp) * (1 + number("body_wall_margin_frac"))
@@ -334,13 +339,11 @@ def host_end(body: Body, pusher: bool) -> tuple[np.ndarray, float]:
         return nose, 0.0
     if body.facets is not None:
         radius = end_radius_m(body.facets, body.length_m)
+        rise = axis_z_at_x(body, body.nose_m[0] + body.length_m) - body.nose_m[2]
     else:
         radius = float(body_radius_frac(body, np.array([1.0]))[0]) * min(
             body.half_width_m, body.half_height_m
         )
-    if body.facets is not None:
-        rise = axis_z_at_x(body, body.nose_m[0] + body.length_m) - body.nose_m[2]
-    else:
         rise = float(body_axis_z(body, np.array([1.0]))[0]) - body.nose_m[2]
     return nose + np.array([body.length_m, 0.0, rise]), radius
 

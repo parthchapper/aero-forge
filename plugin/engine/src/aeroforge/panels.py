@@ -75,8 +75,8 @@ def design_panels(design: Design) -> list[Panel]:
 
 
 def panels_csv(panels: list[Panel]) -> str:
-    """panels.csv text: one row per flat face; list columns are `;`-joined in edge order (edge i
-    runs from corner i to corner i + 1)."""
+    """panels.csv text: one row per physical sheet; list columns are `;`-joined in edge order
+    (edge i runs from corner i to corner i + 1)."""
     rows = [CSV_HEADER]
     for p in panels:
         lengths = ";".join(f"{x:.6f}" for x in p.edge_lengths_m)
