@@ -128,7 +128,8 @@ def size_faceted_body(
         if length > cap_m:
             raise FacetError(f"the boxes need a faceted body longer than {cap_m:.2f} m")
         k_in = _faceted_fit(fam, req, "inline", length, in_axes)
-        k_fit = _faceted_fit(fam, req, fam.box_layout, length, axes)
+        same = fam.box_layout in ("inline", "wing_root")
+        k_fit = k_in if same else _faceted_fit(fam, req, fam.box_layout, length, axes)
         if np.isfinite(k_fit) and fineness * 2 * max(in_axes) * k_in <= length:
             break
         length *= number("facet_length_growth")

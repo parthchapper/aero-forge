@@ -112,34 +112,40 @@ def is_closed(poly: Polyhedron) -> bool:
     return all(n == 2 for n in edges.values()) and v - len(edges) + len(poly.faces) == 2
 
 
-def _split_long_edges(tris: np.ndarray, spacing_m: float) -> np.ndarray:
-    """Triangles (n, 3, 3) bisected across their longest edge until none exceeds sqrt(2)
-    spacing_m (a right isosceles leaf of legs spacing_m: as dense as a grid of that spacing).
-    Skinny faces get few leaves: the count follows area / spacing^2, not edge length."""
-    done: list[np.ndarray] = []
-    while len(tris):
-        edges = np.linalg.norm(tris - np.roll(tris, -1, axis=1), axis=2)  # edge i: i -> i + 1
-        longest = edges.argmax(axis=1)
-        big = edges.max(axis=1) > np.sqrt(2.0) * spacing_m
-        done.append(tris[~big])
-        tris, longest = tris[big], longest[big]
-        rows = np.arange(len(tris))
-        v0 = tris[rows, longest]
-        v1 = tris[rows, (longest + 1) % 3]
-        v2 = tris[rows, (longest + 2) % 3]
-        mid = (v0 + v1) / 2.0
-        tris = np.concatenate([np.stack([v0, mid, v2], axis=1), np.stack([mid, v1, v2], axis=1)])
-    return np.concatenate(done) if done else np.zeros((0, 3, 3))
+def _sample_triangles(tris: np.ndarray, spacing_m: float) -> np.ndarray:
+    """Direct O(area / spacing^2) grid on each triangle: rows parallel to the longest edge,
+    at most spacing_m apart along both the base and altitude (every point within spacing_m)."""
+    blocks: list[np.ndarray] = []
+    for tri in tris:
+        lens = np.linalg.norm(tri - np.roll(tri, -1, axis=0), axis=1)
+        i = int(np.argmax(lens))
+        base = float(lens[i])
+        if base <= 0.0:
+            continue
+        a, b, c = tri[i], tri[(i + 1) % 3], tri[(i + 2) % 3]
+        h = float(np.linalg.norm(np.cross(b - a, c - a))) / base
+        nv = max(1, int(np.ceil(h / spacing_m)))
+        vs = np.arange(nv, dtype=float) / nv
+        nu = np.maximum(1, np.ceil((1.0 - vs) * base / spacing_m).astype(int))
+        counts = nu + 1
+        row = np.repeat(np.arange(nv), counts)
+        idx = np.arange(len(row)) - np.repeat(np.cumsum(counts) - counts, counts)
+        u = idx / np.repeat(nu, counts)
+        v = vs[row]
+        lo = (1.0 - v)[:, None] * a + v[:, None] * c
+        hi = (1.0 - v)[:, None] * b + v[:, None] * c
+        blocks.append(lo + u[:, None] * (hi - lo))
+    return np.vstack(blocks) if blocks else np.zeros((0, 3))
 
 
 def sample_points(poly: Polyhedron, spacing_m: float) -> np.ndarray:
     """Points covering every face, vertices and edges included: no point of a face is farther
-    than spacing_m from one (faces fan-triangulated, then bisected; body frame)."""
+    than spacing_m from one (faces fan-triangulated, then grid-sampled; body frame)."""
     v = np.asarray(poly.vertices_m)
     tris = np.array(
         [[v[f[0]], v[f[i]], v[f[i + 1]]] for f in poly.faces for i in range(1, len(f) - 1)]
     )
-    pts = np.vstack([v, _split_long_edges(tris, spacing_m).reshape(-1, 3)])
+    pts = np.vstack([v, _sample_triangles(tris, spacing_m)])
     # fan triangulation differs between a face and its mirror image, so keep the right half and
     # mirror it: the sample set is then exactly symmetric about y = 0 (SPEC §5 invariant 1)
     right = pts[pts[:, 1] > 0.0]

@@ -11,7 +11,9 @@ from aeroforge.aero import (
     CRUISE_POINT,
     AeroError,
     Samples,
+    buildup_pitch_updater,
     buildup_samples,
+    cn_beta_buildup,
     flight_state,
     lift_n,
     point_speeds,
@@ -23,8 +25,8 @@ from aeroforge.genome import decode
 from aeroforge.mass import MassItem, cg_range, mass_items
 from aeroforge.models import Adjust, ControlSurface, Design, Requirements, Surface
 from aeroforge.style import panels, wing_surfaces
-from aeroforge.tier2 import tier2, vlm_samples
-from aeroforge.trim import AeroResult, SampleFn, evaluate, lateral, slopes, trim_point
+from aeroforge.tier2 import Panels, tier2, tier2_from_samples, vlm_samples
+from aeroforge.trim import AeroResult, SampleFn, evaluate, slopes, trim_point
 
 SHIFT_ON_TARGET, SHIFT_CAPPED, NO_BODY = "on_target", "capped", "no_body"
 CAPPED_NOTE = "body shift capped"
@@ -51,6 +53,7 @@ class Prepared:
     fin_capped: bool
     incidence_rule: str
     samples: Samples
+    panels: Panels | None = None
 
 
 def with_pitch_control(d: Design, aft_x_m: float, incidence_deg: float) -> Design:
@@ -106,8 +109,8 @@ def _vlm_sampler(
 
 
 def _moved_fraction(d: Design, req: Requirements, payload_mass_kg: float) -> float:
-    """Mass share that moves with body0: shell, boxes and body-hosted propulsion."""
-    movers = {"body0", *(b.name for b in d.boxes)}
+    """Mass share that moves with body0: shell, body0-hosted boxes and body-hosted propulsion."""
+    movers = {"body0", *(b.name for b in d.boxes if b.host == "body0")}
     hosted = [p.name for p in d.propulsors if p.host == "body0"]
     movers |= {f"{name}_{part}" for name in hosted for part in ("drive", "prop")}
     items = mass_items(d, req, payload_mass_kg)
@@ -120,10 +123,15 @@ def _miss_m(d: Design, req: Requirements, payload_mass_kg: float, target_m: floa
 
 
 def _solve_shift(
-    genome: np.ndarray, req: Requirements, payload_mass_kg: float, adjust: Adjust, target_m: float
+    genome: np.ndarray,
+    req: Requirements,
+    payload_mass_kg: float,
+    adjust: Adjust,
+    target_m: float,
+    initial: Design | None = None,
 ) -> tuple[float, str]:
     """Body shift putting the aft CG target_m behind surface0's root (secant on CG alone)."""
-    d = decode(genome, req, adjust)
+    d = initial if initial is not None else decode(genome, req, adjust)
     if not any(b.name == "body0" for b in d.bodies):
         return 0.0, NO_BODY
     tol = number("balance_target_tol") * flight_state(d, req).c_ref_m
@@ -154,18 +162,17 @@ def _shifted(
     genome: np.ndarray, req: Requirements, payload_mass_kg: float, adjust: Adjust, sampler: SampleFn
 ) -> tuple[Adjust, str]:
     """adjust with the body shift re-solved on the sampler's NP of the design it builds."""
-    d = build(genome, req, adjust, payload_mass_kg)
+    bare = decode(genome, req, adjust)
+    d = with_pitch_control(bare, float(_aft(bare, req, payload_mass_kg)[0]), adjust.incidence_deg)
     target = _target_m(d, req, payload_mass_kg, _samples(d, req, payload_mass_kg, sampler))
-    shift, outcome = _solve_shift(genome, req, payload_mass_kg, adjust, target)
+    shift, outcome = _solve_shift(genome, req, payload_mass_kg, adjust, target, bare)
     return adjust.model_copy(update={"body_shift_m": shift}), outcome
 
 
 def _cn_beta(d: Design, req: Requirements, payload_mass_kg: float) -> float:
     """Fresh tier-1 Cn_beta [1/rad] about the aft CG at cruise."""
-    sm = _samples(d, req, payload_mass_kg, buildup_samples)
-    speeds, cruise = _speeds(req)
-    s = int(np.flatnonzero(speeds == cruise)[0])
-    return lateral(sm, s, _aft(d, req, payload_mass_kg), flight_state(d, req), cruise)[0]
+    _, cruise = _speeds(req)
+    return cn_beta_buildup(d, req, cruise, _aft(d, req, payload_mass_kg))
 
 
 def has_vertical_area(d: Design) -> bool:
@@ -224,7 +231,10 @@ def _incidence_deg(d: Design, req: Requirements, items: tuple[MassItem, ...], sm
     li, mi = float(lift_n(d_force, a0)), float(arm[2] * d_force[0] - arm[0] * d_force[2])
     system = np.array([[k.la, li], [k.ma, mi]])
     rhs = np.array([flight_state(d, req).weight_n - k.l0, -k.m0])
-    return float(np.linalg.solve(system, rhs)[1])
+    try:
+        return float(np.linalg.solve(system, rhs)[1])
+    except np.linalg.LinAlgError:
+        return float("nan")
 
 
 def _tilted(d: Design, name: str, incidence_deg: float) -> Design:
@@ -265,41 +275,65 @@ def _next_incidence(
     return i1 - d1 * (i1 - i0) / (d1 - d0) if d1 != d0 else i1
 
 
+def _finish_eval(
+    d: Design, req: Requirements, payload_mass_kg: float, tier: int
+) -> tuple[Samples, Panels | None, SampleFn]:
+    """Initial samples, optional VLM panels, and round-aware sampler for _finish."""
+    speeds, cruise = _speeds(req)
+    aft = _aft(d, req, payload_mass_kg)
+    if tier == 1:
+        sm0, updater = buildup_pitch_updater(d, req, speeds, cruise, aft)
+        return sm0, None, lambda dd, _r, _sp, _c, cg: updater(dd, cg)
+    sm0, pan0 = vlm_samples(d, req, speeds, cruise, aft)
+    return sm0, pan0, _vlm_sampler
+
+
+def _rebalance(
+    d: Design, req: Requirements, payload_mass_kg: float, tier: int, sampler: SampleFn
+) -> tuple[Balance, Panels | None]:
+    """Sample d at its aft CG and balance boxes; keeps tier-2 Panels when unchanged."""
+    speeds, cruise = _speeds(req)
+    aft = _aft(d, req, payload_mass_kg)
+    if tier == 2:
+        sm, pan = vlm_samples(d, req, speeds, cruise, aft)
+    else:
+        sm, pan = sampler(d, req, speeds, cruise, aft), None
+    bal = balance(d, req, payload_mass_kg, sampler, sm)
+    return bal, (pan if tier == 2 and bal.samples is sm else None)
+
+
 def _finish(
     genome: np.ndarray,
     req: Requirements,
     payload_mass_kg: float,
     adjust: Adjust,
     outcomes: tuple[str, bool],
-    sampler: SampleFn,
+    tier: int,
 ) -> Prepared:
-    """Build and slide the boxes on the sampler's NP; then drive the measured cruise deflection
-    at the mid CG to zero with the pitch surface's incidence (linear first step, then secant),
-    re-sliding the boxes each round because the NP moves with the incidence. The round with the
-    smallest measured deflection is kept (zero incidence included), so a diverging or
-    untrimmable step never replaces a better one."""
+    """Build and slide boxes on the tier's NP, then zero cruise deflection with pitch incidence."""
     d = build(genome, req, adjust.model_copy(update={"incidence_deg": 0.0}), payload_mass_kg)
-    bal = balance(d, req, payload_mass_kg, sampler, _samples(d, req, payload_mass_kg, sampler))
+    sm0, pan, sampler = _finish_eval(d, req, payload_mass_kg, tier)
+    bal = balance(d, req, payload_mass_kg, sampler, sm0)
+    pan = pan if tier == 2 and bal.samples is sm0 else None
     rule = _incidence_rule(bal.design, bal.samples.pitch_control)
-    rounds: list[tuple[float, float, Balance, np.ndarray]] = []
+    rounds: list[tuple[float, float, Balance, np.ndarray, Panels | None]] = []
     slides, incidence = np.array([bal.battery_shift_m, bal.stack_shift_m]), 0.0
     tried: list[tuple[float, float, float]] = []
     for _ in range(int(number("incidence_rounds")) + 1 if rule == INCIDENCE_SET else 1):
         size = _measured_deg(bal, req, payload_mass_kg)
-        rounds.append((size, incidence, bal, slides.copy()))
+        rounds.append((size, incidence, bal, slides.copy(), pan))
         if size <= number("incidence_tol_deg") or not np.isfinite(size) or rule != INCIDENCE_SET:
             break
-        signed = _cruise_deflection_deg(bal.design, req, payload_mass_kg, bal.samples)
-        tried.append((incidence, signed, size))
+        tried.append(
+            (incidence, _cruise_deflection_deg(bal.design, req, payload_mass_kg, bal.samples), size)
+        )
         incidence = _next_incidence(tried, bal, req, payload_mass_kg)
         if not np.isfinite(incidence):
             break
         tilted = _tilted(bal.design, str(bal.samples.pitch_control), incidence)
-        bal = balance(
-            tilted, req, payload_mass_kg, sampler, _samples(tilted, req, payload_mass_kg, sampler)
-        )
+        bal, pan = _rebalance(tilted, req, payload_mass_kg, tier, sampler)
         slides = np.add(slides, (bal.battery_shift_m, bal.stack_shift_m))
-    _, incidence, bal, slides = min(rounds, key=lambda r: r[0])
+    _, incidence, bal, slides, pan = min(rounds, key=lambda r: r[0])
     final = adjust.model_copy(update={"incidence_deg": incidence})
     shift_outcome, capped = outcomes
     return Prepared(
@@ -312,6 +346,7 @@ def _finish(
         capped,
         rule,
         bal.samples,
+        pan,
     )
 
 
@@ -324,7 +359,7 @@ def _prepare_memo(genome_bytes: bytes, req_json: str, payload_mass_kg: float) ->
     adjust, capped = _vertical_scale(genome, req, payload_mass_kg, adjust)
     if adjust.fin_scale != 1.0:
         adjust, outcome = _shifted(genome, req, payload_mass_kg, adjust, buildup_samples)
-    return _finish(genome, req, payload_mass_kg, adjust, (outcome, capped), buildup_samples)
+    return _finish(genome, req, payload_mass_kg, adjust, (outcome, capped), 1)
 
 
 def prepare(genome: np.ndarray, req: Requirements, payload_mass_kg: float) -> Prepared:
@@ -343,7 +378,7 @@ def _tier2_memo(genome_bytes: bytes, req_json: str, payload_mass_kg: float) -> P
     first = _prepare_memo(genome_bytes, req_json, payload_mass_kg)
     start = first.adjust.model_copy(update={"incidence_deg": 0.0})
     adjust, outcome = _shifted(genome, req, payload_mass_kg, start, _vlm_sampler)
-    return _finish(genome, req, payload_mass_kg, adjust, (outcome, first.fin_capped), _vlm_sampler)
+    return _finish(genome, req, payload_mass_kg, adjust, (outcome, first.fin_capped), 2)
 
 
 def prepare_tier2(genome: np.ndarray, req: Requirements, payload_mass_kg: float) -> Prepared:
@@ -354,9 +389,11 @@ def prepare_tier2(genome: np.ndarray, req: Requirements, payload_mass_kg: float)
 def prepared_aero(
     p: Prepared, req: Requirements, payload_mass_kg: float, tier: int
 ) -> tuple[tuple[MassItem, ...], AeroResult]:
-    """Masses and aero of a prepared design (tier 1 re-uses its samples)."""
+    """Masses and aero of a prepared design (both tiers reuse their precomputed samples)."""
     items = mass_items(p.design, req, payload_mass_kg)
     cgs = cg_range(items)
     if tier == 1:
         return items, evaluate(p.design, req, cgs, lambda *_: p.samples, 1)
+    if p.panels is not None:
+        return items, tier2_from_samples(p.design, req, cgs, p.samples, p.panels)
     return items, tier2(p.design, req, cgs)

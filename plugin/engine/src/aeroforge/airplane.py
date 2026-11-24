@@ -36,9 +36,17 @@ def section_airfoil(camber_frac: float, camber_loc_frac: float, tc: float) -> as
     return asb.Airfoil(name="naca", coordinates=xy)
 
 
-def surface_airfoil(s: Surface) -> asb.Airfoil:
-    """Airfoil of surface s."""
-    return section_airfoil(s.camber_frac, s.camber_loc_frac, s.tc)
+@lru_cache(maxsize=1024)
+def section_kulfan(camber_frac: float, camber_loc_frac: float, tc: float) -> asb.KulfanAirfoil:
+    """Cached KulfanAirfoil for NeuralFoil/AeroBuildup (avoids repeated CST fitting)."""
+    return section_airfoil(camber_frac, camber_loc_frac, tc).to_kulfan_airfoil()
+
+
+def surface_airfoil(s: Surface, vlm: bool = True) -> asb.Airfoil:
+    """Airfoil of surface s (KulfanAirfoil for AeroBuildup, coordinate Airfoil for VLM)."""
+    if vlm:
+        return section_airfoil(s.camber_frac, s.camber_loc_frac, s.tc)
+    return section_kulfan(s.camber_frac, s.camber_loc_frac, s.tc)
 
 
 def _span_m(a: Section, b: Section) -> float:
@@ -107,7 +115,7 @@ def wing(s: Surface, deflection_deg: float, vlm: bool) -> asb.Wing:
     AeroBuildup takes the deflection as a ControlSurface on the inboard xsec of each controlled
     section; the VLM ignores ControlSurface, so it gets deflected airfoils on the control stations.
     """
-    af, c = surface_airfoil(s), s.control
+    af, c = surface_airfoil(s, vlm=vlm), s.control
     deflect = c is not None and deflection_deg != 0.0
     xsecs = []
     for st in _stations(s, vlm):

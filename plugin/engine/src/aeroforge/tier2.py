@@ -131,6 +131,8 @@ def vlm_samples(
     d_w = (
         (bent.wing_force_n - lo.wing_force_n) * per_deg if bent else np.zeros_like(lo.wing_force_n)
     )
+    if abs(hi.cl) < 1e-12:
+        raise AeroError("zero VLM lift at alpha_hi: cannot compute induced_k")
     samples = replace(
         base,
         force_n=scale[:, None, None] * pair_f + base.body_force_n,
@@ -193,6 +195,20 @@ def stall_order(d: Design, p: Panels, t: Trim, f: Flight, alpha_deg: np.ndarray)
         other_ratio=max(others, default=0.0),
         peak_span_frac=peaks[peak_name][1],
     )
+
+
+def tier2_from_samples(
+    d: Design, req: Requirements, cgs_m: tuple[np.ndarray, np.ndarray], sm: Samples, panels: Panels
+) -> AeroResult:
+    """Tier-2 evaluation reusing precomputed VLM Samples and Panels."""
+    result = evaluate(d, req, cgs_m, lambda *_: sm, 2)
+    alpha = np.array(numbers("aero_alpha_deg"))
+    orders = tuple(
+        stall_order(d, panels, t, result.flight, alpha)
+        for t in result.trims
+        if t.point == STALL_POINT
+    )
+    return replace(result, stall_order=orders)
 
 
 def tier2(d: Design, req: Requirements, cgs_m: tuple[np.ndarray, np.ndarray]) -> AeroResult:

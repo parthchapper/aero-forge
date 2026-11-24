@@ -1,16 +1,18 @@
 """Linearised aero samples and trimmed flight points; tier 1 = asb.AeroBuildup (SPEC §8)."""
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import lru_cache
 
 import aerosandbox as asb
 import numpy as np
+from aerosandbox.aerodynamics.aero_3D.aero_buildup import softmax_scalefree
 
 from aeroforge.airplane import (
     airplane,
     mac_m,
     pitch_surface,
-    section_airfoil,
+    section_kulfan,
     span_m,
     wing,
 )
@@ -152,29 +154,51 @@ def _deflection_deltas(
     return d_f, d_m, d_surf, d_drag
 
 
-def buildup_samples(
-    d: Design, req: Requirements, speeds_ms: np.ndarray, cruise_ms: float, ref_m: np.ndarray
+def _sum_components(
+    op: asb.OperatingPoint, wings: list[object], bodies: list[object]
+) -> tuple[np.ndarray, ...]:
+    """Total geometry force/moment, per-wing force/moment, lift, induced drag and profile drag."""
+    comps = [*wings, *bodies]
+    n = len(np.ravel(op.velocity))
+    f_raw = [sum(c.F_g[i] for c in comps) for i in range(3)]
+    m_raw = [sum(c.M_g[i] for c in comps) for i in range(3)]
+    span_sq = softmax_scalefree([c.span_effective**2 * c.oswalds_efficiency for c in comps])
+    _, side, lift = op.convert_axes(*f_raw, from_axes="geometry", to_axes="wind")
+    induced = (lift**2 + side**2) / (op.dynamic_pressure() * np.pi * span_sq)
+    ind_g = op.convert_axes(-induced, 0, 0, from_axes="wind", to_axes="geometry")
+    force = _vec3([f_raw[i] + ind_g[i] for i in range(3)], n)
+    moment = _vec3(m_raw, n)
+    surf = np.stack([_vec3(c.F_g, n) for c in wings], axis=1)
+    surf_m = np.stack([_vec3(c.M_g, n) for c in wings], axis=1)
+    profile = np.broadcast_to(np.ravel(sum(c.D for c in comps)), (n,))
+    return force, moment, surf, surf_m, np.ravel(lift), np.ravel(induced), profile
+
+
+def _assemble_samples(
+    d: Design,
+    req: Requirements,
+    speeds_ms: np.ndarray,
+    cruise_ms: float,
+    ref_m: np.ndarray,
+    op: asb.OperatingPoint,
+    wings: list[object],
+    bodies: list[object],
+    pitch: Surface | None,
 ) -> Samples:
-    """Tier-1 samples from one vectorised AeroBuildup run plus the deflected pitch surface."""
-    ap = airplane(d, req, ref_m, None, 0.0, vlm=False)
-    op = _operating_point(req, speeds_ms, cruise_ms)
-    out = asb.AeroBuildup(ap, op, xyz_ref=list(ref_m)).run()
-    out["op_point"] = op
+    """Assemble tier-1 Samples from per-component AeroBuildup outputs (exact match to .run())."""
     n, ns = 2 * len(speeds_ms) + 1, len(speeds_ms)
-    force, moment = _vec3(out["F_g"], n), _vec3(out["M_g"], n)
-    surf = np.stack([_vec3(c.F_g, n) for c in out["wing_aero_components"]], axis=1)
-    surf_moment_nm = np.stack([_vec3(c.M_g, n) for c in out["wing_aero_components"]], axis=1)
-    wash_f, wash_m = downwash(d, surf, surf_moment_nm, op, speeds_ms)
+    force, moment, surf, surf_m, lift, induced, profile = _sum_components(op, wings, bodies)
+    wash_f, wash_m = downwash(d, surf, surf_m, op, speeds_ms)
     force, moment, surf = force + wash_f.sum(axis=1), moment + wash_m.sum(axis=1), surf + wash_f
-    bodies = out["fuselage_aero_components"]
     body_f = sum((_vec3(c.F_g, n) for c in bodies), np.zeros((n, 3)))
     body_m = sum((_vec3(c.M_g, n) for c in bodies), np.zeros((n, 3)))
-    lift, induced = np.ravel(out["L"]), np.ravel(out["D_induced"])
     q_s = 0.5 * float(op.atmosphere.density()) * cruise_ms**2 * d.lifting_area_m2
     hi = 2 * int(np.flatnonzero(speeds_ms == cruise_ms)[0]) + 1
-    pitch = pitch_surface(d, float(ref_m[0]))
-    deltas = _deflection_deltas(d, req, ref_m, pitch, out, ns)
-    profile = np.broadcast_to(np.ravel(out["D_profile"]), (n,))
+    if abs(float(lift[hi])) < 1e-12:
+        raise AeroError("zero lift at alpha_hi: cannot compute induced_k")
+    deltas = _deflection_deltas(
+        d, req, ref_m, pitch, {"op_point": op, "wing_aero_components": wings}, ns
+    )
     return Samples(
         speeds_ms=speeds_ms,
         alpha_deg=np.array(numbers("aero_alpha_deg")),
@@ -196,6 +220,70 @@ def buildup_samples(
         xyz_ref_m=ref_m,
         pitch_control=None if pitch is None else pitch.name,
     )
+
+
+def buildup_samples(
+    d: Design, req: Requirements, speeds_ms: np.ndarray, cruise_ms: float, ref_m: np.ndarray
+) -> Samples:
+    """Tier-1 samples from one vectorised AeroBuildup run plus the deflected pitch surface."""
+    ap = airplane(d, req, ref_m, None, 0.0, vlm=False)
+    op = _operating_point(req, speeds_ms, cruise_ms)
+    ab = asb.AeroBuildup(ap, op, xyz_ref=list(ref_m))
+    wings = [ab.wing_aerodynamics(w, include_induced_drag=False) for w in ap.wings]
+    bodies = [ab.fuselage_aerodynamics(f, include_induced_drag=False) for f in ap.fuselages]
+    return _assemble_samples(
+        d, req, speeds_ms, cruise_ms, ref_m, op, wings, bodies, pitch_surface(d, float(ref_m[0]))
+    )
+
+
+def buildup_pitch_updater(
+    d: Design, req: Requirements, speeds_ms: np.ndarray, cruise_ms: float, ref_m: np.ndarray
+) -> tuple[Samples, Callable[[Design, np.ndarray], Samples]]:
+    """Initial Samples plus a fast updater when only the pitch surface's incidence_deg changes."""
+    ap = airplane(d, req, ref_m, None, 0.0, vlm=False)
+    op = _operating_point(req, speeds_ms, cruise_ms)
+    ab = asb.AeroBuildup(ap, op, xyz_ref=list(ref_m))
+    wings = [ab.wing_aerodynamics(w, include_induced_drag=False) for w in ap.wings]
+    bodies = [ab.fuselage_aerodynamics(f, include_induced_drag=False) for f in ap.fuselages]
+    pitch = pitch_surface(d, float(ref_m[0]))
+    first = _assemble_samples(d, req, speeds_ms, cruise_ms, ref_m, op, wings, bodies, pitch)
+
+    def update(tilted: Design, cg_m: np.ndarray) -> Samples:
+        new_pitch = pitch_surface(tilted, float(cg_m[0]))
+        if pitch is None or new_pitch is None or new_pitch.name != pitch.name:
+            return buildup_samples(tilted, req, speeds_ms, cruise_ms, cg_m)
+        k = [s.name for s in tilted.surfaces].index(pitch.name)
+        swapped = list(wings)
+        swapped[k] = ab.wing_aerodynamics(
+            wing(tilted.surfaces[k], 0.0, vlm=False), include_induced_drag=False
+        )
+        return _assemble_samples(
+            tilted, req, speeds_ms, cruise_ms, ref_m, op, swapped, bodies, new_pitch
+        )
+
+    return first, update
+
+
+def cn_beta_buildup(d: Design, req: Requirements, cruise_ms: float, cg_m: np.ndarray) -> float:
+    """Fast tier-1 Cn_beta [1/rad] about cg_m at cruise (3-point run, no deflection)."""
+    a_lo, a_hi = numbers("aero_alpha_deg")
+    beta_deg = number("aero_beta_deg")
+    op = asb.OperatingPoint(
+        atmosphere=asb.Atmosphere(altitude=req.altitude_m),
+        velocity=np.full(3, cruise_ms),
+        alpha=np.array([a_lo, a_hi, a_lo]),
+        beta=np.array([0.0, 0.0, beta_deg]),
+    )
+    ap = airplane(d, req, cg_m, None, 0.0, vlm=False)
+    out = asb.AeroBuildup(ap, op, xyz_ref=list(cg_m)).run()
+    moment = _vec3(out["M_g"], 3)
+    surf = np.stack([_vec3(c.F_g, 3) for c in out["wing_aero_components"]], axis=1)
+    surf_m = np.stack([_vec3(c.M_g, 3) for c in out["wing_aero_components"]], axis=1)
+    _, wash_m = downwash(d, surf, surf_m, op, np.array([cruise_ms]))
+    moment = moment + wash_m.sum(axis=1)
+    f = flight_state(d, req)
+    q_sb = 0.5 * f.rho_kg_m3 * cruise_ms**2 * f.s_ref_m2 * f.b_ref_m
+    return float(-(moment[2, 2] - moment[0, 2]) / (q_sb * np.radians(beta_deg)))
 
 
 def downwash(
@@ -241,7 +329,7 @@ def _section_clmax(camber: float, loc: float, tc: float, re: float) -> float:
     """Max section lift coefficient over the alpha sweep (NeuralFoil, step-0 Decision b)."""
     lo, hi, step = numbers("section_clmax_alpha_deg")
     alpha = np.arange(lo, hi + step / 2, step)
-    aero = section_airfoil(camber, loc, tc).get_aero_from_neuralfoil(alpha=alpha, Re=re)
+    aero = section_kulfan(camber, loc, tc).get_aero_from_neuralfoil(alpha=alpha, Re=re)
     return float(np.max(aero["CL"]))
 
 
