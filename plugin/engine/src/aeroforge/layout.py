@@ -100,6 +100,7 @@ def _faceted_fit(
     # wall margin a smooth body keeps (it also leaves room for the hatch above the boxes)
     t = corners[:, 0] / length_m
     corners[:, 2] -= axis_rise_m(t, fam.shape, length_m, fam.body_tail_upsweep_deg)
+    corners[corners[:, 2] > 0.0, 2] += number(
         "hatch_thickness_m"
     )  # the hatch lies on the top boxes
     return fit_scale(poly, corners) * (1.0 + number("body_wall_margin_frac"))
