@@ -152,6 +152,8 @@ class Family(Frozen):
     edge_alignment: EdgeAlignment = "off"  # U3: top-view outline edges
     edge_angles_deg: tuple[float, ...] = ()  # U3: the angle set strict alignment snapped to
     edge_body_angles_deg: tuple[float, ...] = ()  # U3: the same for flat-panel body edges
+    facet_coarseness: float = 0.0  # U3b: 0 = U3 panels, 1 = few large sharp panels (faceted parts)
+    facet_notes: tuple[str, ...] = ()  # U3b: what coarseness changed in the wing sections
 
 
 class Section(Frozen):

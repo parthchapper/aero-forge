@@ -5,13 +5,7 @@ from dataclasses import dataclass, replace
 import numpy as np
 
 from aeroforge.align import strict_family, strict_notes
-from aeroforge.assemble import (
-    Context,
-    Layout,
-    host_name,
-    solve_layout,
-    surface_area,
-)
+from aeroforge.assemble import Context, Layout, host_name, solve_layout, surface_area
 from aeroforge.body_align import BodySnap, initial_shape, next_shape
 from aeroforge.constants import number
 from aeroforge.finish import finish_design
@@ -70,7 +64,7 @@ def _initial_state(v: Genes, fam: Family, adjust: Adjust) -> State:
         body_shape=initial_shape(fam),
         body_min_length_m=0.0,
         shift=Growth(0.0, 0.0, adjust.body_shift_m),
-        notes=strict_notes(v, fam),
+        notes=(*strict_notes(v, fam), *fam.facet_notes),
     )
 
 
@@ -141,6 +135,7 @@ def _spec(v: Genes, fam: Family, state: State, i: int, targets: set[int]) -> Sur
         twist_deg=v.num[p + "twist_deg"] if mirrored else 0.0,  # a twisted centreline fin would toe
         airfoil_facets=fam.airfoil_facets,
         align_angles_deg=fam.edge_angles_deg,
+        coarseness=fam.facet_coarseness,
     )
 
 
@@ -335,7 +330,8 @@ def _attempt(
         update={"shape": centre_fam.shape, "body_rise_x_frac": centre_fam.body_rise_x_frac}
     )
     if body and state.body_shape and (better := next_shape(fam, body, state.body_shape)):
-        return replace(state, body_shape=better, rise_x_frac=None, flat_tail=False)
+        notes = (*state.notes, *better.notes)
+        return replace(state, body_shape=better, rise_x_frac=None, flat_tail=False, notes=notes)
     pattern = prop_pattern(v, state)
     half_w = body.half_width_m if body else 0.0
     pusher = v.pick["prop_direction"] == "pusher"

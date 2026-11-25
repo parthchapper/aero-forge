@@ -3,6 +3,7 @@
 import numpy as np
 
 from aeroforge.assemble import Context, Layout, host_name, surface_area
+from aeroforge.coarse_metrics import coarse_notes
 from aeroforge.constants import constant, number, numbers
 from aeroforge.edges import alignment_misses
 from aeroforge.faceted_body import firewall_attach
@@ -150,7 +151,12 @@ def finish_design(
     design = bare.model_copy(
         update={
             "propulsors": props,
-            "notes": (*notes, *_firewall_notes(bare, props), *miss_notes(bare)),
+            "notes": (
+                *notes,
+                *_firewall_notes(bare, props),
+                *miss_notes(bare),
+                *coarse_notes(bare),
+            ),
         }
     )
     # Mirroring keeps x, so the obstacle cloud plus one instance per prop holds the nose-most point.

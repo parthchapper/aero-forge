@@ -38,12 +38,17 @@ def faceted(req: Requirements) -> list[Design]:
     gs = random_genomes(np.random.default_rng(SEED), 24)
     out = []
     for i, g in enumerate(gs):
-        out.append(decode(pin_choice(g[None, :], "airfoil_facets", COUNTS[i % 6])[0], req))
+        out.append(decode(_u3(g, COUNTS[i % 6]), req))
     return out
 
 
-def test_the_two_u3_genes_close_the_table_and_their_first_labels_are_no_ops() -> None:
-    rows = gene_table()[-2:]
+def _u3(g: np.ndarray, label: str) -> np.ndarray:
+    """g with the wing facet count pinned and the U3b coarseness off (these tests are U3's)."""
+    return pin_choice(pin_choice(g[None, :], "airfoil_facets", label), "facet_coarseness", "off")[0]
+
+
+def test_the_u3_genes_precede_the_u3b_gene_and_their_first_labels_are_no_ops() -> None:
+    rows = gene_table()[-3:-1]
     assert [g.name for g in rows] == ["airfoil_facets", "edge_alignment"]
     assert rows[0].choices[0] == "smooth" and rows[1].choices[0] == "off"
 
@@ -153,7 +158,7 @@ def test_checks_take_less_than_twenty_percent_longer_with_faceted_wings() -> Non
     def run(label: str) -> float:
         t = time.perf_counter()
         for g in gs:
-            evaluate(pin_choice(g[None, :], "airfoil_facets", label)[0], brief, r, 1)
+            evaluate(_u3(g, label), brief, r, 1)
         return time.perf_counter() - t
 
     run("smooth"), run("5")  # warm the section and import caches of both before timing

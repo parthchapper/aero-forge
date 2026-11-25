@@ -292,3 +292,17 @@ strict_widest_x_max_frac: {value: 0.8, unit: "-", source: "U3 assumed: widest st
 strict_tail_end_max_frac: {value: 0.6, unit: "-", source: "U3 assumed: tail end size / max section of a strictly aligned body at most this (genes reach 0.5)"}
 edge_body_halvings: {value: 3, unit: count, source: "U3 assumed: steep body edge angles 90 - a / 2^k for k = 1..this (a = main wing sweep); bodies of fineness 4-10 have nose and tail edges at 75-88 degrees"}
 strict_body_snap_max: {value: 6, unit: count, source: "U3 assumed: re-snaps of a strictly aligned body's widest station and tail end after a sizing pass; some bodies creep (box sizing moves its length when the station moves) without settling, the 7th pass is not taken and the measured edge angles are reported"}
+# --- facet coarseness (U3b; every value ASSUMED, user-approved wording in SPEC section 6) ---
+coarse_level_low: {value: 0.35, unit: "-", source: "U3b ASSUMED: facet_coarseness gene label low"}
+coarse_level_mid: {value: 0.7, unit: "-", source: "U3b ASSUMED: facet_coarseness gene label mid (high = 1)"}
+coarse_min_crease_deg: {value: 15.0, unit: deg, source: "U3b ASSUMED (user: start at 15): smallest crease between adjacent sheets at coarseness 1, scaled by the coarseness"}
+coarse_move_frac: {value: 0.03, unit: "-", source: "U3b user decision: a crease merge may move vertices by at most this share of the part length (body: its length; wing: the section chord); a merge over it is skipped and noted"}
+coarse_wing_facets_loose: {value: 8, unit: count, source: "U3b ASSUMED: most flat segments per side of a wing section at coarseness 0"}
+coarse_wing_facets_tight: {value: 4, unit: count, source: "U3b ASSUMED: most flat segments per side of a wing section at coarseness 1 (user: wing 4-12 sheets per side over 1-3 strips)"}
+coarse_wing_side_panels_max: {value: 12, unit: count, source: "U3b user: wing sheets per side budget (measured and reported, not enforced past the facet limit)"}
+coarse_body_sides_loose: {value: 12, unit: count, source: "U3b ASSUMED: most corners of a faceted body section at coarseness 0"}
+coarse_body_sides_tight: {value: 8, unit: count, source: "U3b ASSUMED: most corners of a faceted body section at coarseness 1"}
+coarse_body_panels_max: {value: 30, unit: count, source: "U3b user: body sheet budget (12-30)"}
+coarse_directions_max: {value: 8, unit: count, source: "U3b user: face-normal directions per side (upper / lower) a coarse part should have; measured and reported"}
+coarse_cluster_deg: {value: 3.0, unit: deg, source: "U3b user: face normals within this angle are one direction"}
+coarse_twist_step_deg: {value: 2.0, unit: deg, source: "U3b ASSUMED: washout step size at coarseness 1 (a step is this x coarseness): the washout becomes whole steps between sections, one strip per step, so the other strips stay flat quads"}

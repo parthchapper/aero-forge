@@ -7,6 +7,7 @@ import numpy as np
 
 from aeroforge.airfoil import local_thickness_frac
 from aeroforge.align import snap_sections
+from aeroforge.coarse import stepped_levels
 from aeroforge.constants import constant, number
 from aeroforge.models import Family, Section, Spar, TipStyle, Vec3
 
@@ -38,6 +39,7 @@ class SurfaceGenes:
     root_chord_scale: float = 1.0  # strake: inner-panel root chord x this, area kept
     twist_deg: float = 0.0  # linear washout from root to tip
     airfoil_facets: int = 0  # flat segments per side of the section polygon (0 = smooth)
+    coarseness: float = 0.0  # U3b facet coarseness of a faceted surface (stepped washout)
     align_angles_deg: tuple[float, ...] = ()  # strict alignment: allowed edge angles (() = free)
 
 
@@ -90,14 +92,19 @@ def _direction(sweep_deg: float, cant_deg: float) -> np.ndarray:
     return np.array([np.tan(np.radians(sweep_deg)), np.cos(c), np.sin(c)])
 
 
-def _twisted(sections: list[Section], n_structural: int, twist_deg: float) -> list[Section]:
+def _twisted(
+    sections: list[Section], n_structural: int, twist_deg: float, steps: int = 0
+) -> list[Section]:
     """Sections with a linear washout over the structural span (arc length root to tip); the tip
-    extension holds the tip twist. Zero twist returns the sections untouched."""
+    extension holds the tip twist. steps > 0: the washout in that many whole steps (coarseness),
+    so a strip between two sections of one step is not twisted. Zero twist returns the sections."""
     if twist_deg == 0.0:
         return sections
     pts = np.array([s.le_m[1:] for s in sections[:n_structural]])
     arc = np.concatenate([[0.0], np.cumsum(np.hypot(*np.diff(pts, axis=0).T))])
     frac = np.concatenate([arc / arc[-1], np.ones(len(sections) - n_structural)])
+    if steps:
+        frac = np.round(frac * steps) / steps
     return [
         s.model_copy(update={"twist_deg": float(twist_deg * f)})
         for s, f in zip(sections, frac, strict=True)
@@ -184,7 +191,11 @@ def build_planform(
         snap = snap_sections(tuple(sections), g.align_angles_deg, root_mid_m[0])
         sections, note = list(snap.sections), snap.note
         c_root_section = sections[0].chord_m
-    sections = _twisted(sections, n_structural, g.twist_deg)
+    steps = stepped_levels(g.twist_deg, g.coarseness, n_structural - 1) if g.airfoil_facets else 0
+    sections = _twisted(sections, n_structural, g.twist_deg, steps)
+    if steps:
+        step_note = f"coarseness: washout {g.twist_deg:.1f} deg in {steps} step(s), not linear"
+        note = f"{note}; {step_note}" if note else step_note
     return Planform(tuple(sections), n_structural, aspect, g.tip_style, c_root_section, note)
 
 

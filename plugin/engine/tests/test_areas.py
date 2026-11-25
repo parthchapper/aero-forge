@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 
 from aeroforge.areas import areas, body_top_share, frontal_area_m2, top_area_m2
-from aeroforge.facet_query import inside_faceted
+from aeroforge.facet_query import cell_projection, inside_faceted
 from aeroforge.models import Body, Design, Section, Surface
 from aeroforge.shapes import body_radius_frac
 
@@ -175,6 +175,16 @@ def _raster_top(d: Design) -> float:
             quads.append(q)
             if s.mirrored:
                 quads.append(q * np.array([1.0, -1.0]))
+    for (
+        b
+    ) in d.bodies:  # a flat-panel body: the convex cell shadows (U3b: its law is not the envelope)
+        if b.facets is None:
+            continue
+        for hull in cell_projection(b.facets, (0, 1)):
+            q = hull + np.array(b.nose_m[:2])
+            quads.append(q)
+            if b.mirrored:
+                quads.append(q * np.array([1.0, -1.0]))
     pts = np.vstack(
         [q for q in quads]
         + [
@@ -192,7 +202,7 @@ def _raster_top(d: Design) -> float:
     ys = np.arange(lo[1], hi[1], RASTER_CELL_M) + RASTER_CELL_M / 2
     x, y = np.meshgrid(xs, ys)
     inside = _in_quads(x, y, quads) if quads else np.zeros(x.shape, dtype=bool)
-    for b in d.bodies:
+    for b in (b for b in d.bodies if b.facets is None):
         t = (x - b.nose_m[0]) / b.length_m
         for y0 in [b.nose_m[1], -b.nose_m[1]] if b.mirrored else [b.nose_m[1]]:
             width = b.half_width_m * body_radius_frac(b, t)

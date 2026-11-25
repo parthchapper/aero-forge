@@ -434,8 +434,12 @@ def test_internals_misfits_stay_under_one_percent_over_four_hundred_genomes(
 
 
 def test_genome_length_is_99_before_u3_and_u3_adds_exactly_two_genes() -> None:
-    assert genome_length() == 99 + 2
-    assert [g.name for g in gene_table()[-2:]] == ["airfoil_facets", "edge_alignment"]
+    assert genome_length() == 99 + 3
+    assert [g.name for g in gene_table()[-3:]] == [
+        "airfoil_facets",
+        "edge_alignment",
+        "facet_coarseness",
+    ]
 
 
 def test_a_long_slightly_tilted_shaft_fuses_with_its_blades_into_one_solid() -> None:

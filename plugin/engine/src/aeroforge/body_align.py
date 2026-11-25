@@ -7,10 +7,11 @@ so the widest-station position m and the tail end size set their angles in close
 the body's length and half-width come out of the box sizing, the decoder re-snaps after each
 sizing pass until they stop changing (genome.py repair loop). Pure; metres, degrees."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 
+from aeroforge.coarse_body import coarsen
 from aeroforge.constants import number
 from aeroforge.edges import angle_gap_deg
 from aeroforge.models import Body, BodyShape, Family
@@ -82,12 +83,17 @@ class BodySnap:
 
     shape: BodyShape
     count: int = 0
+    coarse: bool = False  # the coarseness pass (coarse_body.coarsen) has been made
+    notes: tuple[str, ...] = ()  # decoder notes of the change that made this snap
 
 
 def initial_shape(fam: Family) -> BodySnap | None:
-    """The coerced body shape a strictly aligned flat-panel design starts from (None: no change)."""
-    if fam.edge_alignment != "strict" or fam.shape.style != "faceted":
+    """The coerced body shape a strictly aligned flat-panel design starts from (None: no change
+    unless the coarseness has a pass to make on a flat-panel body)."""
+    if fam.shape.style != "faceted":
         return None
+    if fam.edge_alignment != "strict":
+        return BodySnap(fam.shape) if fam.facet_coarseness > 0.0 else None
     return BodySnap(coerced(fam.shape))
 
 
@@ -95,11 +101,17 @@ def next_shape(fam: Family, body: Body, snap: BodySnap) -> BodySnap | None:
     """The next re-snap for the sized centre body, None when its edges already sit on allowed
     angles, no allowed angle fits (the measured notes report it), or strict_body_snap_max re-snaps
     were spent (box sizing and snapping chase each other slowly on some bodies)."""
-    if body.facets is None or snap.count >= int(number("strict_body_snap_max")):
+    if body.facets is None:
         return None
-    new = snap_shape(fam.shape, body.length_m, body.half_width_m, fam.edge_body_angles_deg)
-    same = (
-        abs(new.max_section_x_frac - fam.shape.max_section_x_frac) < 1e-9
-        and abs(new.tail_end_size_frac - fam.shape.tail_end_size_frac) < 1e-9
-    )
-    return None if same else BodySnap(new, snap.count + 1)
+    if snap.count < int(number("strict_body_snap_max")) and fam.edge_body_angles_deg:
+        new = snap_shape(fam.shape, body.length_m, body.half_width_m, fam.edge_body_angles_deg)
+        same = (
+            abs(new.max_section_x_frac - fam.shape.max_section_x_frac) < 1e-9
+            and abs(new.tail_end_size_frac - fam.shape.tail_end_size_frac) < 1e-9
+        )
+        if not same:
+            return replace(snap, shape=new, count=snap.count + 1, notes=())
+    if fam.facet_coarseness <= 0.0 or snap.coarse:
+        return None
+    shape, notes = coarsen(fam.shape, body, fam.facet_coarseness)
+    return replace(snap, shape=shape, coarse=True, notes=notes) if notes else None

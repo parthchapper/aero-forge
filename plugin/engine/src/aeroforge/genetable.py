@@ -5,6 +5,7 @@ from functools import cache
 
 import numpy as np
 
+from aeroforge.coarse import coarse_family, level
 from aeroforge.constants import load_table, number
 from aeroforge.models import BodyShape, Family
 
@@ -140,7 +141,7 @@ def facets_of(v: Genes) -> int:
 def family_of(v: Genes) -> Family:
     """Design-language values from the global genes."""
     airfoil = v.pick["fam_airfoil"]
-    return Family(
+    fam = Family(
         sweep_deg=v.num["fam_sweep_deg"],
         taper=v.num["fam_taper"],
         dihedral_deg=v.num["fam_dihedral_deg"],
@@ -159,4 +160,6 @@ def family_of(v: Genes) -> Family:
         shape=shape_of(v),
         airfoil_facets=facets_of(v),
         edge_alignment=v.pick["edge_alignment"],  # type: ignore[arg-type]
+        facet_coarseness=level(v.pick["facet_coarseness"]),
     )
+    return coarse_family(fam)

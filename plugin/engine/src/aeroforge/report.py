@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from aeroforge.areas import Areas, areas
 from aeroforge.checks import CheckReport
+from aeroforge.coarse_metrics import coarse_rows
 from aeroforge.constants import constant, load_table
 from aeroforge.edge_report import edge_rows
 from aeroforge.fit_report import fit_rows
@@ -89,6 +90,14 @@ def area_rows(shadow: Areas) -> list[str]:
     ]
 
 
+def _coarse_section(design: Design) -> list[str]:
+    """Facet coarseness section, empty for a design with no faceted part."""
+    faceted = any(b.facets is not None for b in design.bodies) or any(
+        s.airfoil_facets for s in design.surfaces
+    )
+    return ["## Facet coarseness (measured)", *coarse_rows(design), ""] if faceted else []
+
+
 def _faceted_fidelity(design: Design) -> list[str]:
     """The faceted sentences of the fidelity statement: flat-panel body, polygon wing sections."""
     out = []
@@ -144,6 +153,7 @@ def report_md(
         "## Outline edges seen from above (measured)",
         *edge_rows(design),
         "",
+        *_coarse_section(design),
         "## Shadow areas",
         *area_rows(areas(design)),
         "",
