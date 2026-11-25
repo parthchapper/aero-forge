@@ -1,35 +1,49 @@
 """How coarse the faceted parts of a design are (SPEC §11, U3b): sheets, crease angles and face
 directions, measured on the finished polyhedra, and the report.md section and decoder notes built
-from them. Pure numpy; the sheets are the physical pieces (coplanar faces merged)."""
+from them. Pure numpy; a sheet is a physical piece (coplanar faces merged: what the cut list and
+the CAD solid hold), nothing is grouped further. Wing caps (root and tip) are not skin."""
 
 from dataclasses import dataclass
 
 import numpy as np
 
-from aeroforge.coarse import min_crease_deg
 from aeroforge.constants import number
 from aeroforge.facet_aero import facet_drag_area_m2
+from aeroforge.facet_decimate import min_crease_deg
 from aeroforge.facet_pieces import PieceError, pieces
-from aeroforge.facet_wing import wing_polyhedron
-from aeroforge.models import Design, Polyhedron
+from aeroforge.facet_wing import _part_length, wing_geometry, wing_polyhedron
+from aeroforge.facets import facet_body_info
+from aeroforge.models import Body, Design, Polyhedron, Surface
 
 SHARP_DEG = 10.0
-WING_CAPS = 2  # root and tip cap of a wing: not a side
 
 
 @dataclass(frozen=True)
 class Measure:
-    """Coarseness of one faceted part: sheets, the crease angle [deg] across every shared edge of
-    two sheets, and the face directions (3 deg clusters of the sheet normals) in all and the
-    larger count of the upper and lower sides."""
+    """Coarseness of one faceted part. sheets: skin sheets of the whole part (a mirrored wing:
+    one half; wing caps left out); upper / lower: the sheets of each side (normal up or down);
+    creases_deg: the angle across every shared edge of two skin sheets; directions: 3 deg clusters
+    of the sheet normals, in all and on the upper / lower side."""
 
     part: str
     kind: str
     sheets: int
+    upper: int
+    lower: int
     creases_deg: np.ndarray
     directions: int
-    directions_side: int
-    sheets_raw: int
+    dir_upper: int
+    dir_lower: int
+
+    @property
+    def side(self) -> int:
+        """Sheets on the busier side."""
+        return max(self.upper, self.lower)
+
+    @property
+    def dir_side(self) -> int:
+        """Face directions on the busier side."""
+        return max(self.dir_upper, self.dir_lower)
 
 
 def _directions(normals: np.ndarray) -> int:
@@ -41,63 +55,46 @@ def _directions(normals: np.ndarray) -> int:
     return len(reps)
 
 
-def _panel_groups(sheets: list, tol_deg: float) -> list[int]:
-    """Panel number of every sheet: sheets across a crease of at most tol_deg are one panel (the
-    two triangles of a warped quad are one panel to the eye and the builder)."""
-    parent = list(range(len(sheets)))
-
-    def find(a: int) -> int:
-        while parent[a] != a:
-            parent[a] = parent[parent[a]]
-            a = parent[a]
-        return a
-
-    cos = np.cos(np.radians(tol_deg))
-    for i, s in enumerate(sheets):
-        for j in s.across:
-            if float(s.normal @ sheets[j].normal) >= cos:
-                parent[find(i)] = find(j)
-    return [find(i) for i in range(len(sheets))]
-
-
-def measure(part: str, kind: str, poly: Polyhedron) -> Measure | None:
-    """Measure of a polyhedron, None when its sheets cannot be formed. Panels merge sheets across
-    a crease of at most coarse_cluster_deg (the warped halves of a twisted strip)."""
+def measure(
+    part: str, kind: str, poly: Polyhedron, cap_faces: tuple[int, ...] = ()
+) -> Measure | None:
+    """Measure of a polyhedron (sheets holding a face of cap_faces are caps), None when its
+    sheets cannot be formed."""
     try:
         sheets = pieces(poly)
     except PieceError:
         return None
-    group = _panel_groups(sheets, number("coarse_cluster_deg"))
-    normals = np.array([s.normal for s in sheets])
+    skin = [i for i, s in enumerate(sheets) if not set(s.faces) & set(cap_faces)]
+    normals = np.array([sheets[i].normal for i in skin]).reshape(-1, 3)
+    up = normals[:, 2] >= 0.0
     dots = [
-        float(s.normal @ sheets[j].normal)
-        for i, s in enumerate(sheets)
-        for j in s.across
-        if j > i and group[i] != group[j]
+        float(sheets[i].normal @ sheets[j].normal)
+        for i in skin
+        for j in sheets[i].across
+        if j > i
+        if j in set(skin)
     ]
-    upper, lower = normals[normals[:, 2] >= 0.0], normals[normals[:, 2] < 0.0]
     return Measure(
         part,
         kind,
-        len(set(group)),
+        len(skin),
+        int(up.sum()),
+        int((~up).sum()),
         np.degrees(np.arccos(np.clip(dots, -1.0, 1.0))),
         _directions(normals),
-        max(_directions(upper), _directions(lower)),
-        len(sheets),
+        _directions(normals[up]),
+        _directions(normals[~up]),
     )
 
 
 def design_measures(design: Design) -> list[Measure]:
     """Measures of every faceted body, then every faceted wing."""
     out = [measure(b.name, "body", b.facets) for b in design.bodies if b.facets is not None]
-    out += [
-        measure(s.name, "wing", wing_polyhedron(s)) for s in design.surfaces if s.airfoil_facets
-    ]
+    for s in design.surfaces:
+        if s.airfoil_facets:
+            poly = wing_polyhedron(s)
+            out.append(measure(s.name, "wing", poly, (0, len(poly.faces) - 1)))
     return [m for m in out if m is not None]
-
-
-def _sheets_per_side(m: Measure) -> float:
-    return (m.sheets - WING_CAPS) / 2.0 if m.kind == "wing" else float(m.sheets)
 
 
 def _budget(m: Measure) -> float:
@@ -105,25 +102,33 @@ def _budget(m: Measure) -> float:
     return number(key)
 
 
+def _count(m: Measure) -> int:
+    """The count the panel budget is read on: a wing's busier side, a body's sheets."""
+    return m.side if m.kind == "wing" else m.sheets
+
+
 def coarse_rows(design: Design) -> list[str]:
     """Report lines: the coarseness, one row per faceted part, the aero stand-in's cost."""
     fam = design.family
     least = min_crease_deg(fam.facet_coarseness)
     rows = [
-        f"- facet_coarseness {fam.facet_coarseness:.2f}: smallest crease {least:.0f} deg, wing "
-        f"sections of {fam.airfoil_facets} flat segments per side. A panel joins sheets across "
-        f"creases of {number('coarse_cluster_deg'):g} deg or less (the halves of a twisted strip).",
+        f"- facet_coarseness {fam.facet_coarseness:.2f}: smallest crease {least:.0f} deg. Sheets "
+        "are the physical pieces of panels.csv (a mirrored wing: one half, caps left out); sides "
+        "are upper / lower; directions are clusters of "
+        f"{number('coarse_cluster_deg'):g} deg of the sheet normals.",
         "",
-        "| part | panels (wing: per side) | sheets | face directions (per side) "
-        "| creases under 10 deg | smallest crease [deg] |",
-        "|---|---|---|---|---|---|",
+        "| part | sheets | upper / lower | directions | upper / lower | creases under 10 deg "
+        "| under 15 deg | smallest [deg] |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for m in design_measures(design):
-        low = float((m.creases_deg < SHARP_DEG).mean()) if len(m.creases_deg) else 0.0
-        smallest = float(m.creases_deg.min()) if len(m.creases_deg) else 0.0
+        c = m.creases_deg
+        low10 = float((c < SHARP_DEG).mean()) if len(c) else 0.0
+        low15 = float((c < 15.0).mean()) if len(c) else 0.0
         rows.append(
-            f"| {m.part} | {_sheets_per_side(m):g} | {m.sheets_raw} "
-            f"| {m.directions} ({m.directions_side}) | {low:.0%} | {smallest:.1f} |"
+            f"| {m.part} | {m.sheets} | {m.upper} / {m.lower} | {m.directions} "
+            f"| {m.dir_upper} / {m.dir_lower} | {low10:.0%} | {low15:.0%} "
+            f"| {float(c.min()) if len(c) else 0.0:.1f} |"
         )
     drag = facet_drag_area_m2(design)
     area = sum(s.area_m2 for s in design.surfaces if s.airfoil_facets) or 1.0
@@ -136,23 +141,66 @@ def coarse_rows(design: Design) -> list[str]:
     return rows
 
 
+def planar_notes(surface: Surface, c: float) -> list[str]:
+    """Notes on the vertex moves that made the twisted quads of a faceted wing flat."""
+    planar = wing_geometry(surface)[1]
+    if planar is None or (not planar.merged and not planar.blocked):
+        return []
+    part = _part_length(surface)
+    out = [
+        f"coarseness {c:.2f}: {surface.name}: {len(planar.merged)} strip quads made flat by moving "
+        f"vertices up to {planar.move_m * 1000:.1f} mm ({planar.move_m / part:.1%} of the part "
+        f"length, cap {number('coarse_move_frac'):.0%})"
+    ]
+    if planar.blocked:
+        out.append(
+            f"coarseness {c:.2f}: {surface.name}: {planar.blocked} twisted strip quads stay two "
+            "triangles (a merge would move vertices over the cap): blocked by the cap"
+        )
+    return out
+
+
+def body_merge_notes(design: Design, body: Body, c: float) -> list[str]:
+    """Notes on the vertex moves that made neighbouring body sheets under the smallest crease
+    coplanar (the body's own length and size set the cap, so a pod has its own note)."""
+    shape = design.family.shape.model_copy(update={"coarseness": c})
+    axes = (body.half_width_m, body.half_height_m)
+    info = facet_body_info(shape, body.length_m, axes, body.tail_upsweep_deg, body.rise_x_frac)[1]
+    if info is None or (not info.merged and not info.blocked):
+        return []
+    out = [
+        f"coarseness {c:.2f}: {body.name}: {info.merged} pairs of neighbouring sheets under "
+        f"{min_crease_deg(c):.0f} deg made coplanar by moving vertices up to "
+        f"{info.move_m * 1000:.1f} mm ({info.move_m / body.length_m:.1%} of the body length, cap "
+        f"{number('coarse_move_frac'):.0%})"
+    ]
+    if info.blocked:
+        out.append(
+            f"coarseness {c:.2f}: {body.name}: {info.blocked} pairs stay creases (the merge would "
+            "move vertices over the cap or conflict with another): blocked by the cap"
+        )
+    return out
+
+
 def coarse_notes(design: Design) -> tuple[str, ...]:
     """Decoder notes for parts still over the budgets or under the smallest crease, measured on
     the finished design (nothing the coarsening could not reach goes unreported)."""
     c = design.family.facet_coarseness
     if c <= 0.0:
         return ()
-    out = []
+    out = [n for s in design.surfaces if s.airfoil_facets for n in planar_notes(s, c)]
+    out += [
+        n for b in design.bodies if b.facets is not None for n in body_merge_notes(design, b, c)
+    ]
     for m in design_measures(design):
         shallow = int((m.creases_deg < min_crease_deg(c) - 1e-6).sum())
-        over = _sheets_per_side(m) > _budget(m)
-        dirs = m.directions_side > number("coarse_directions_max")
-        if shallow or over or dirs:
+        dirs = m.dir_side > number("coarse_directions_max")
+        if shallow or _count(m) > _budget(m) or dirs:
             out.append(
-                f"coarseness {c:.2f}: {m.part} has {_sheets_per_side(m):g} sheets"
-                f"{' per side' if m.kind == 'wing' else ''} (budget {_budget(m):g}), "
-                f"{m.directions_side} face directions per side (budget "
-                f"{number('coarse_directions_max'):g}), {shallow} of {len(m.creases_deg)} creases "
-                f"under {min_crease_deg(c):.0f} deg"
+                f"coarseness {c:.2f}: {m.part} has {m.sheets} sheets ({m.upper} upper / "
+                f"{m.lower} lower; budget {_budget(m):g} on the busier "
+                f"{'side' if m.kind == 'wing' else 'part'}), {m.dir_side} face directions on its "
+                f"busier side (budget {number('coarse_directions_max'):g}), {shallow} of "
+                f"{len(m.creases_deg)} creases under {min_crease_deg(c):.0f} deg"
             )
     return tuple(out)

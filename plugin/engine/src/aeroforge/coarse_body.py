@@ -9,19 +9,19 @@ skipped and noted. Pure; metres, degrees."""
 
 import numpy as np
 
-from aeroforge.coarse import lerp, min_crease_deg
+from aeroforge.coarse import lerp
 from aeroforge.constants import number
+from aeroforge.facet_decimate import min_crease_deg
 from aeroforge.facet_pieces import PieceError, pieces
 from aeroforge.facets import _radius_frac, effective_plan, facet_body, section_polygon
 from aeroforge.models import Body, BodyShape
 
+MIN_CORNERS = 3  # a section polygon keeps at least a triangle
+
 
 def min_turn_deg(polygon: np.ndarray) -> float:
     """Smallest turn [deg] at a corner of a closed convex polygon (rows are corners)."""
-    d = np.roll(polygon, -1, axis=0) - polygon
-    ang = np.arctan2(d[:, 1], d[:, 0])
-    turn = np.degrees(np.abs((np.roll(ang, -1) - ang + np.pi) % (2 * np.pi) - np.pi))
-    return float(turn.min())
+    return float(_turns_deg(polygon).min())
 
 
 def _to_boundary(points: np.ndarray, polygon: np.ndarray) -> float:
@@ -63,37 +63,87 @@ def _sheets(shape: BodyShape, body: Body) -> int:
         return 0
 
 
+def _turns_deg(polygon: np.ndarray) -> np.ndarray:
+    """Turn [deg] at every corner of a closed convex polygon (rows are corners)."""
+    d = np.roll(polygon, -1, axis=0) - polygon
+    ang = np.arctan2(d[:, 1], d[:, 0])
+    return np.degrees(np.abs((np.roll(ang, -1) - ang + np.pi) % (2 * np.pi) - np.pi))
+
+
+def _right_rows(polygon: np.ndarray) -> list[int]:
+    """Rows of the polygon's right half off the axis, ridge to belly (the droppable corners)."""
+    return [i for i, y in enumerate(polygon[:, 0]) if y > 1e-9][: len(polygon) // 2]
+
+
+def _dropping(
+    cur: BodyShape, old: np.ndarray, body: Body, alive: list[int], tests: tuple[bool, float, float]
+) -> BodyShape | None:
+    """cur with its flattest droppable corner (and mirror) dropped, None when nothing may go:
+    every wanted corner is over the cap, or none is wanted. tests = (over budget, smallest
+    crease, cap [m])."""
+    over, least, cap_m = tests
+    poly = _scaled(cur, cur.sides, body)
+    turn, rows = _turns_deg(poly), _right_rows(poly)
+    if len(poly) - 2 < MIN_CORNERS:
+        return None
+    for j in sorted(range(len(rows)), key=lambda r: turn[rows[r]]):
+        if not over and turn[rows[j]] >= least:
+            return None
+        trial = cur.model_copy(update={"dropped": tuple(sorted([*cur.dropped, alive[j]]))})
+        moved = polygon_move_m(old, _scaled(trial, trial.sides, body))
+        if moved <= cap_m and len(poly) - 2 >= MIN_CORNERS:
+            alive.pop(j)
+            return trial
+    return None
+
+
 def _sides(shape: BodyShape, body: Body, c: float, cap_m: float) -> tuple[BodyShape, list[str]]:
-    """shape with the section corners the smallest crease and the sheet budget leave."""
-    k0 = shape.sides
-    old, least = _scaled(shape, k0, body), min_crease_deg(c)
-    want = min(k0, round(lerp(c, "coarse_body_sides_loose", "coarse_body_sides_tight")))
-    ladder = [
-        k for k in range(want, 2, -1) if polygon_move_m(old, _scaled(shape, k, body)) <= cap_m
-    ]
-    sharp = [k for k in ladder if min_turn_deg(_scaled(shape, k, body)) >= least]
-    k = sharp[0] if sharp else (ladder[0] if ladder else k0)
-    out = shape.model_copy(update={"sides": k})
+    """shape without the section corners it can lose: the flattest corner of the gene polygon
+    goes first (with its mirror) while a corner turns by less than the smallest crease or the body
+    has more sheets than the budget, within cap_m of the gene polygon."""
+    old, least = _scaled(shape, shape.sides, body), min_crease_deg(c)
     budget = int(number("coarse_body_panels_max"))
-    while (n := _sheets(out, body)) > budget and k > 3 and (k - 1) in ladder:
-        k -= 1
-        out = shape.model_copy(update={"sides": k})
-    notes = []
-    if k != k0:
-        move = polygon_move_m(old, _scaled(shape, k, body)) / body.length_m
+    corners = round(lerp(c, "coarse_body_sides_loose", "coarse_body_sides_tight"))
+    cur, alive, blocked = shape, list(range(len(_right_rows(old)))), False
+    while True:
+        poly = _scaled(cur, cur.sides, body)
+        n = _sheets(cur, body)
+        over = n > budget or len(poly) > corners
+        if not over and _turns_deg(poly).min() >= least:
+            break
+        nxt = _dropping(cur, old, body, alive, (over, least, cap_m))
+        if nxt is None:
+            blocked = True
+            break
+        cur = nxt
+    return _body_notes(shape, cur, body, c, cap_m, (old, n, blocked))
+
+
+def _body_notes(
+    shape: BodyShape, out: BodyShape, body: Body, c: float, cap_m: float, seen: tuple
+) -> tuple[BodyShape, list[str]]:
+    """Notes of the corner decimation: what was dropped and what the cap kept."""
+    old, n, blocked = seen
+    poly, least, notes = _scaled(out, out.sides, body), min_crease_deg(c), []
+    if out.dropped:
+        k0, k1 = len(old), len(poly)
+        move = polygon_move_m(old, poly) / body.length_m
         notes.append(
-            f"coarseness {c:.2f}: body section {k0} -> {k} corners (largest vertex move "
-            f"{move:.1%} of the body length, cap {number('coarse_move_frac'):.0%})"
+            f"coarseness {c:.2f}: body section {k0} -> {k1} corners (flattest dropped first; "
+            f"largest vertex move {move:.1%} of the body length, "
+            f"cap {number('coarse_move_frac'):.0%})"
         )
-    turn = min_turn_deg(_scaled(out, k, body))
-    if turn < least:
+    turn = float(_turns_deg(poly).min())
+    if blocked and turn < least:
         notes.append(
             f"coarseness {c:.2f}: body section corners turn by as little as {turn:.1f} deg "
-            f"(smallest crease {least:.1f}): fewer corners would move vertices over the cap, "
-            "merge skipped"
+            f"(smallest crease {least:.1f}): dropping them would move vertices over the cap, "
+            "merge blocked by the cap"
         )
-    if n > budget:
-        notes.append(f"coarseness {c:.2f}: body has {n} sheets, over the budget of {budget}")
+    if blocked and n > int(number("coarse_body_panels_max")):
+        notes.append(
+            f"coarseness {c:.2f}: body has {n} sheets, over the budget (blocked by the cap)"
+        )
     return out, notes
 
 

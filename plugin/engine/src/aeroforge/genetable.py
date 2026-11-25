@@ -6,6 +6,7 @@ from functools import cache
 import numpy as np
 
 from aeroforge.coarse import coarse_family, level
+from aeroforge.coarse_prior import weighted
 from aeroforge.constants import load_table, number
 from aeroforge.models import BodyShape, Family
 
@@ -163,3 +164,9 @@ def family_of(v: Genes) -> Family:
         facet_coarseness=level(v.pick["facet_coarseness"]),
     )
     return coarse_family(fam)
+
+
+def random_genomes(rng: np.random.Generator, n: int) -> np.ndarray:
+    """n uniform genomes, shape (n, D); a row with a faceted part draws facet_coarseness from the
+    prior (coarse_prior)."""
+    return weighted(rng.random((n, genome_length())), gene_table())

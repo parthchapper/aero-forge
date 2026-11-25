@@ -333,7 +333,11 @@ def test_style_family_is_respected(decoded: list[Design], genomes: np.ndarray) -
         snapped = (
             {"linear_edges", "max_section_x_frac"} if fam.edge_alignment == "strict" else set()
         )
-        coarse = {"linear_edges", "sides"} if fam.facet_coarseness > 0.0 else set()  # U3b
+        coarse = (  # U3b: coarseness owns these (and gives them up, noted, when the boxes need it)
+            {"linear_edges", "sides", "dropped", "coarseness"}
+            if fam.facet_coarseness > 0.0
+            else set()
+        )
         assert changed <= {"nose", "tail", "tail_end_size_frac"} | snapped | coarse
         for b in d.bodies:
             fineness = b.length_m / (2 * max(b.half_width_m, b.half_height_m))

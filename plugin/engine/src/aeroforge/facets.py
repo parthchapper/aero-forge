@@ -14,7 +14,9 @@ import numpy as np
 from scipy.spatial import ConvexHull
 
 from aeroforge.constants import number
+from aeroforge.facet_decimate import min_crease_deg
 from aeroforge.facet_ends import FacetError, apex_points, end_faces, end_panel_count
+from aeroforge.facet_planar import Merged, merge_sheets
 from aeroforge.models import BodyShape, Polyhedron
 
 NOSES = ("point", "chisel", "blunt")
@@ -141,10 +143,11 @@ def section_polygon(shape: BodyShape, sides: int) -> np.ndarray:
     arc = np.concatenate([[0.0], np.cumsum(np.hypot(*np.diff(xy, axis=0).T))])
     at = [float(arc[i]) for i, p in enumerate(chain) if p[0] in kept]
     right = _outline_points(xy, arc, _spread(float(arc[-1]), at, pairs - len(kept)))
+    right = np.delete(right, [i for i in shape.dropped if i < len(right)], axis=0)  # U3b
     top = [[0.0, 1.0]] if n_axis else []
     bottom = [[0.0, -1.0]] if n_axis == 2 else []
     poly = np.array([*top, *right, *bottom, *(right[::-1] * np.array([-1.0, 1.0]))])
-    if len(poly) != sides:
+    if len(poly) != sides - 2 * len([i for i in shape.dropped if i < pairs]):
         raise FacetError(f"section polygon has {len(poly)} corners, not {sides}")
     z_lo, z_hi = float(poly[:, 1].min()), float(poly[:, 1].max())
     # centred and scaled to its bounding box so the body axis is inside it and the half-width and
@@ -360,6 +363,24 @@ def body_polyhedron(
 
 
 @lru_cache(maxsize=512)
+def facet_body_info(
+    shape: BodyShape,
+    length_m: float,
+    axes_m: tuple[float, float],
+    upsweep_deg: float = 0.0,
+    rise_x_frac: float | None = None,
+) -> tuple[Polyhedron, Merged | None]:
+    """Polyhedron of the plan the shape genes ask for (repaired by effective_plan); at facet
+    coarseness > 0 neighbouring sheets under the smallest crease are then merged by moving
+    vertices (facet_planar.merge_sheets, in y and z only: the station rings stay in their planes)
+    by at most coarse_move_frac of the length and coarse_move_width_frac of the narrower axis."""
+    poly = body_polyhedron(effective_plan(shape), shape, length_m, axes_m, upsweep_deg, rise_x_frac)
+    if shape.coarseness <= 0.0:
+        return poly, None
+    cap = min(number("coarse_move_frac") * length_m, number("coarse_move_width_frac") * min(axes_m))
+    return merge_sheets(poly, min_crease_deg(shape.coarseness), cap)
+
+
 def facet_body(
     shape: BodyShape,
     length_m: float,
@@ -367,5 +388,5 @@ def facet_body(
     upsweep_deg: float = 0.0,
     rise_x_frac: float | None = None,
 ) -> Polyhedron:
-    """Polyhedron of the plan the shape genes ask for (repaired by effective_plan)."""
-    return body_polyhedron(effective_plan(shape), shape, length_m, axes_m, upsweep_deg, rise_x_frac)
+    """Polyhedron of the body for these genes (see facet_body_info)."""
+    return facet_body_info(shape, length_m, axes_m, upsweep_deg, rise_x_frac)[0]

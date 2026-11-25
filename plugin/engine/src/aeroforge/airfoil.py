@@ -7,6 +7,7 @@ import numpy as np
 from aerosandbox.geometry.airfoil.airfoil_families import get_NACA_coordinates
 
 from aeroforge.constants import number
+from aeroforge.facet_decimate import Decimated, decimate, min_crease_deg, segment_limit, unpack
 
 
 @lru_cache(maxsize=4096)
@@ -25,23 +26,41 @@ def naca_outline(
 
 
 @lru_cache(maxsize=4096)
-def facet_outline(
+def facet_sides(
     camber_frac: float, camber_loc_frac: float, tc: float, n_per_side: int, facets: int
-) -> np.ndarray:
-    """Unit-chord polygon [x/c, y/c] of `facets` flat segments per side, vertices on the NACA
-    outline at x/c = (i / facets)^airfoil_facet_x_power, one sharp vertex at each end; same order
-    as naca_outline (upper trailing edge -> leading edge -> lower trailing edge, the trailing-edge
-    vertex repeated at both ends), 2 facets + 1 points."""
+) -> tuple[np.ndarray, np.ndarray, tuple[Decimated, Decimated] | None]:
+    """Upper and lower polyline [x/c, y/c], leading edge first, of a facet code, and what the
+    decimation did to each (None at coarseness 0). The gene polygon has k0 flat segments per
+    side with vertices on the NACA outline at x/c = (i / k0)^airfoil_facet_x_power, a sharp vertex
+    at each end; a coarse code (facet_decimate.pack) then drops the flattest corners."""
+    k0, c = unpack(facets)
     xy = naca_outline(camber_frac, camber_loc_frac, tc, n_per_side)
     split = len(xy) // 2
     upper, lower = xy[: split + 1][::-1], xy[split:]
-    xs = (np.arange(facets + 1) / facets) ** number("airfoil_facet_x_power")
+    xs = (np.arange(k0 + 1) / k0) ** number("airfoil_facet_x_power")
     yu = np.interp(xs, upper[:, 0], upper[:, 1])
     yl = np.interp(xs, lower[:, 0], lower[:, 1])
     if camber_frac == 0.0:  # a symmetric section is exactly symmetric (centreline fins mirror)
         yl = -yu
     yu[[0, -1]] = yl[[0, -1]] = (yu[[0, -1]] + yl[[0, -1]]) / 2.0
-    out = np.vstack([np.column_stack([xs, yu])[::-1], np.column_stack([xs, yl])[1:]])
+    up, lo = np.column_stack([xs, yu]), np.column_stack([xs, yl])
+    if c <= 0.0:
+        return up, lo, None
+    args = (min_crease_deg(c), segment_limit(c), number("coarse_move_frac"))
+    du = decimate(up, *args, min_points=3)  # the section keeps its thickness
+    dl = du if camber_frac == 0.0 else decimate(lo, *args)
+    kept_lo = up[list(du.keep)] * np.array([1.0, -1.0]) if camber_frac == 0.0 else lo[list(dl.keep)]
+    return up[list(du.keep)], kept_lo, (du, dl)
+
+
+@lru_cache(maxsize=4096)
+def facet_outline(
+    camber_frac: float, camber_loc_frac: float, tc: float, n_per_side: int, facets: int
+) -> np.ndarray:
+    """Polygon [x/c, y/c] of a facet code, same order as naca_outline (upper trailing edge ->
+    leading edge -> lower trailing edge, the trailing-edge vertex repeated at both ends)."""
+    up, lo, _ = facet_sides(camber_frac, camber_loc_frac, tc, n_per_side, facets)
+    out = np.vstack([up[::-1], lo[1:]])
     out.setflags(write=False)
     return out
 

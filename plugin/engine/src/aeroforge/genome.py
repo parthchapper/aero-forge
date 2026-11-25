@@ -6,10 +6,12 @@ import numpy as np
 
 from aeroforge.align import strict_family, strict_notes
 from aeroforge.assemble import Context, Layout, host_name, solve_layout, surface_area
-from aeroforge.body_align import BodySnap, initial_shape, next_shape
+from aeroforge.body_align import BodySnap, initial_shape, next_shape, uncoarsened
 from aeroforge.constants import number
+from aeroforge.facet_ends import FacetError
 from aeroforge.finish import finish_design
-from aeroforge.genetable import Genes, family_of, genome_length, surface_count, unpack
+from aeroforge.genetable import Genes, family_of, surface_count, unpack
+from aeroforge.genetable import random_genomes as random_genomes  # re-export
 from aeroforge.layout import boxes_in_wing
 from aeroforge.models import Adjust, Body, Design, Family, Requirements, Spar
 from aeroforge.planform import SurfaceGenes, added_fin_spec, fit_tc
@@ -376,7 +378,13 @@ def decode(genome: np.ndarray, req: Requirements, adjust: Adjust = NO_ADJUST) ->
     fam = strict_family(v, family_of(v))
     state = _initial_state(v, fam, adjust)
     for _ in range(int(number("decode_max_passes"))):
-        outcome = _attempt(v, fam, req, state, adjust)
+        try:
+            outcome = _attempt(v, fam, req, state, adjust)
+        except FacetError as e:  # the coarse body cannot hold the design: the genes' body instead
+            if state.body_shape is None or state.body_shape.shape.coarseness <= 0.0:
+                raise
+            snap = uncoarsened(fam, state.body_shape, str(e))
+            outcome = replace(state, body_shape=snap, notes=(*state.notes, *snap.notes))
         if isinstance(outcome, Design):
             return outcome
         state = outcome
@@ -389,8 +397,3 @@ FIN_CAP_NOTE = "fins capped"
 def fin_capped(d: Design) -> bool:
     """The decoder shrank a fin to the fin area or height cap (step 2 round 2)."""
     return any(n.startswith(FIN_CAP_NOTE) for n in d.notes)
-
-
-def random_genomes(rng: np.random.Generator, n: int) -> np.ndarray:
-    """n uniform genomes, shape (n, D)."""
-    return rng.random((n, genome_length()))

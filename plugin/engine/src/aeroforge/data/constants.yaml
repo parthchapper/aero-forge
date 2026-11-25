@@ -306,3 +306,9 @@ coarse_body_panels_max: {value: 30, unit: count, source: "U3b user: body sheet b
 coarse_directions_max: {value: 8, unit: count, source: "U3b user: face-normal directions per side (upper / lower) a coarse part should have; measured and reported"}
 coarse_cluster_deg: {value: 3.0, unit: deg, source: "U3b user: face normals within this angle are one direction"}
 coarse_twist_step_deg: {value: 2.0, unit: deg, source: "U3b ASSUMED: washout step size at coarseness 1 (a step is this x coarseness): the washout becomes whole steps between sections, one strip per step, so the other strips stay flat quads"}
+coarse_prior_off: {value: 0.10, unit: "-", source: "U3b ASSUMED (user: off 10 / low 15 / mid 25 / high 50): search prior weight of facet_coarseness off for a genome with a faceted part"}
+coarse_prior_low: {value: 0.15, unit: "-", source: "U3b ASSUMED search prior weight of facet_coarseness low"}
+coarse_prior_mid: {value: 0.25, unit: "-", source: "U3b ASSUMED search prior weight of facet_coarseness mid"}
+coarse_prior_high: {value: 0.50, unit: "-", source: "U3b ASSUMED search prior weight of facet_coarseness high"}
+planar_det_tol: {value: 1.0e-17, unit: m3, source: "U3b: planarity determinant (6 x tetra volume of a quad's corners) below which facet_planar.planarize calls a quad flat; the flat test of facet_wing then applies facet_geom_tol_m as before"}
+coarse_move_width_frac: {value: 0.15, unit: "-", source: "U3b ASSUMED safety cap: a crease merge on a body moves vertices by at most this share of the body's narrower half-axis (the user's 3 % of the length alone would let a slim pod's merge move a vertex over half its width)"}

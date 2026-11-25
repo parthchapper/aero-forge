@@ -126,6 +126,8 @@ class BodyShape(Frozen):
     tail_end_size_frac: float = 0.18
     max_section_x_frac: float = 0.41
     linear_edges: bool = False  # U3 strict alignment: linear nose and tail radius law
+    dropped: tuple[int, ...] = ()  # U3b: right-half section corners dropped (flattest first)
+    coarseness: float = 0.0  # U3b: neighbouring sheets under the smallest crease are merged
 
 
 class Family(Frozen):

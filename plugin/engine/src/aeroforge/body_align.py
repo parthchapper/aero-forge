@@ -92,9 +92,10 @@ def initial_shape(fam: Family) -> BodySnap | None:
     unless the coarseness has a pass to make on a flat-panel body)."""
     if fam.shape.style != "faceted":
         return None
+    shape = fam.shape.model_copy(update={"coarseness": fam.facet_coarseness})
     if fam.edge_alignment != "strict":
-        return BodySnap(fam.shape) if fam.facet_coarseness > 0.0 else None
-    return BodySnap(coerced(fam.shape))
+        return BodySnap(shape) if fam.facet_coarseness > 0.0 else None
+    return BodySnap(coerced(shape))
 
 
 def next_shape(fam: Family, body: Body, snap: BodySnap) -> BodySnap | None:
@@ -115,3 +116,13 @@ def next_shape(fam: Family, body: Body, snap: BodySnap) -> BodySnap | None:
         return None
     shape, notes = coarsen(fam.shape, body, fam.facet_coarseness)
     return replace(snap, shape=shape, coarse=True, notes=notes) if notes else None
+
+
+def uncoarsened(fam: Family, snap: BodySnap, why: str) -> BodySnap:
+    """The body shape of the genes (coerced when strict) with no coarseness, kept for good: the
+    coarse body could not hold what the design needs (boxes, a plane) and the decoder gave the
+    coarsening up for the body (wings keep theirs)."""
+    shape = fam.shape.model_copy(update={"linear_edges": False, "dropped": (), "coarseness": 0.0})
+    shape = coerced(shape) if fam.edge_alignment == "strict" else shape
+    note = f"coarseness: body coarsening given up, the genes' body kept ({why})"
+    return BodySnap(shape, snap.count, True, (note,))
