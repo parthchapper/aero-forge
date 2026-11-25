@@ -291,3 +291,4 @@ strict_widest_x_min_frac: {value: 0.12, unit: "-", source: "U3 assumed: widest s
 strict_widest_x_max_frac: {value: 0.8, unit: "-", source: "U3 assumed: widest station of a strictly aligned body no further back than this share (genes reach 0.7)"}
 strict_tail_end_max_frac: {value: 0.6, unit: "-", source: "U3 assumed: tail end size / max section of a strictly aligned body at most this (genes reach 0.5)"}
 edge_body_halvings: {value: 3, unit: count, source: "U3 assumed: steep body edge angles 90 - a / 2^k for k = 1..this (a = main wing sweep); bodies of fineness 4-10 have nose and tail edges at 75-88 degrees"}
+strict_body_snap_max: {value: 6, unit: count, source: "U3 assumed: re-snaps of a strictly aligned body's widest station and tail end after a sizing pass; some bodies creep (box sizing moves its length when the station moves) without settling, the 7th pass is not taken and the measured edge angles are reported"}

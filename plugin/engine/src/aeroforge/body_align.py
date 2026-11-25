@@ -7,6 +7,8 @@ so the widest-station position m and the tail end size set their angles in close
 the body's length and half-width come out of the box sizing, the decoder re-snaps after each
 sizing pass until they stop changing (genome.py repair loop). Pure; metres, degrees."""
 
+from dataclasses import dataclass
+
 import numpy as np
 
 from aeroforge.constants import number
@@ -74,21 +76,30 @@ def snap_shape(
     return shape
 
 
-def initial_shape(fam: Family) -> BodyShape | None:
+@dataclass(frozen=True)
+class BodySnap:
+    """The body end shape of a strictly aligned design and how many re-snaps it has had."""
+
+    shape: BodyShape
+    count: int = 0
+
+
+def initial_shape(fam: Family) -> BodySnap | None:
     """The coerced body shape a strictly aligned flat-panel design starts from (None: no change)."""
     if fam.edge_alignment != "strict" or fam.shape.style != "faceted":
         return None
-    return coerced(fam.shape)
+    return BodySnap(coerced(fam.shape))
 
 
-def next_shape(fam: Family, body: Body) -> BodyShape | None:
-    """A better shape for the sized centre body of a strictly aligned design, None when its edges
-    already sit on allowed angles (or no allowed angle fits: reported by the measured notes)."""
-    if fam.edge_alignment != "strict" or body.facets is None:
+def next_shape(fam: Family, body: Body, snap: BodySnap) -> BodySnap | None:
+    """The next re-snap for the sized centre body, None when its edges already sit on allowed
+    angles, no allowed angle fits (the measured notes report it), or strict_body_snap_max re-snaps
+    were spent (box sizing and snapping chase each other slowly on some bodies)."""
+    if body.facets is None or snap.count >= int(number("strict_body_snap_max")):
         return None
     new = snap_shape(fam.shape, body.length_m, body.half_width_m, fam.edge_body_angles_deg)
     same = (
         abs(new.max_section_x_frac - fam.shape.max_section_x_frac) < 1e-9
         and abs(new.tail_end_size_frac - fam.shape.tail_end_size_frac) < 1e-9
     )
-    return None if same else new
+    return None if same else BodySnap(new, snap.count + 1)

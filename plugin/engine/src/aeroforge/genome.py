@@ -12,12 +12,12 @@ from aeroforge.assemble import (
     solve_layout,
     surface_area,
 )
-from aeroforge.body_align import initial_shape, next_shape
+from aeroforge.body_align import BodySnap, initial_shape, next_shape
 from aeroforge.constants import number
 from aeroforge.finish import finish_design
 from aeroforge.genetable import Genes, family_of, genome_length, surface_count, unpack
 from aeroforge.layout import boxes_in_wing
-from aeroforge.models import Adjust, Body, BodyShape, Design, Family, Requirements, Spar
+from aeroforge.models import Adjust, Body, Design, Family, Requirements, Spar
 from aeroforge.planform import SurfaceGenes, added_fin_spec, fit_tc
 from aeroforge.pod_fit import pod_y_bounds, prop_diameter
 from aeroforge.prop_end import PROP_COUNT, centre_body_for_prop
@@ -45,7 +45,7 @@ class State:
     wing_boxes: bool
     flat_tail: bool
     rise_x_frac: float | None
-    body_shape: BodyShape | None  # strict alignment: the body's end shape so far
+    body_shape: BodySnap | None  # strict alignment: the body's end shape so far
     body_min_length_m: float
     shift: Growth
     notes: tuple[str, ...]
@@ -328,13 +328,13 @@ def _attempt(
 ) -> Design | State:
     """One decode pass: a finished design or the next repair state."""
     if state.body_shape is not None:
-        fam = fam.model_copy(update={"shape": state.body_shape})
+        fam = fam.model_copy(update={"shape": state.body_shape.shape})
     body, anchor, centre_fam = _centre(v, fam, req, state)
     # the end shape and the rise start are kept (a dropped upsweep stays a gene value, as before)
     fam = fam.model_copy(
         update={"shape": centre_fam.shape, "body_rise_x_frac": centre_fam.body_rise_x_frac}
     )
-    if body is not None and (better := next_shape(fam, body)) is not None:
+    if body and state.body_shape and (better := next_shape(fam, body, state.body_shape)):
         return replace(state, body_shape=better, rise_x_frac=None, flat_tail=False)
     pattern = prop_pattern(v, state)
     half_w = body.half_width_m if body else 0.0

@@ -70,6 +70,8 @@ def snap_sections(
     chords0 = np.array([c.chord_m for c in sections])
     target_m2 = float((dy * (chords0[:-1] + chords0[1:]) / 2).sum())  # projected area: invariant 3
     te_x = le_x + np.array([c.chord_m for c in sections])
+    if dy.sum() < number("edge_min_length_m"):  # seen edge-on altogether: no edge to snap
+        return Snap(sections, "")
     narrow = dy < number("edge_min_length_m")  # seen edge-on (a near-vertical winglet panel)
     nat_le = np.degrees(np.arctan2(np.diff(le_x), dy))
     nat_te = np.degrees(np.arctan2(np.diff(te_x), dy))
