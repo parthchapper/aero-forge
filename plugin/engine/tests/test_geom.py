@@ -8,6 +8,7 @@ import trimesh
 
 from aeroforge.constants import number
 from aeroforge.facet_query import volume_m3
+from aeroforge.facet_wing import wing_polyhedron
 from aeroforge.genome import decode
 from aeroforge.geom import GeometryError, build_parts
 from aeroforge.mesh import PartMesh, export_mesh, glb_bytes, tessellate, write_stls
@@ -123,7 +124,11 @@ def _cap_volume(outline: np.ndarray) -> float:
 def _surface_volume(s: Surface) -> float:
     """Exact volume of the ruled loft through the sections' own outlines (twist, cant and chord
     included, as the decoder specifies them): ruled strips plus the two planar end caps. The
-    outline of a smooth surface is the NACA polygon the CAD spline passes through."""
+    outline of a smooth surface is the NACA polygon the CAD spline passes through. A flat-panel
+    wing's volume is that of its polyhedron (the planarised strips move its vertices off the
+    section outlines, up to a few per cent on coarse wings; the audit checks CAD = polyhedron)."""
+    if s.airfoil_facets:
+        return volume_m3(wing_polyhedron(s))
     n_af = int(number("airfoil_points_per_side"))
     rings = [section_outline(c, s, n_af) for c in s.sections]
     side = sum(_ruled_side_volume(a, b) for a, b in pairwise(rings))

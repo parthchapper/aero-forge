@@ -109,11 +109,20 @@ def _structure_points(d: Design, x_window_m: tuple[float, float]) -> np.ndarray:
     return np.vstack([q for p, m in parts for q in ((p, p * MIRROR) if m else (p,))])
 
 
+def _body_low_z(b: Body) -> float:
+    """Lowest point of a body: the smooth rule (widest station) or, for a flat-panel body, its
+    polyhedron when that goes deeper (a coarse body went 8 mm below the rule, U3 audit)."""
+    rule = b.nose_m[2] - b.half_height_m
+    if b.facets is None:
+        return rule
+    return min(rule, float(np.asarray(b.facets.vertices_m)[:, 2].min()))
+
+
 def _lowest_z(d: Design) -> float:
     """Lowest structure point: a ruled loft is linear between outlines, so its extremes lie on
     the section outlines; a body's lowest ring point is at its widest station."""
     z_surfaces = min(float(o[:, 2].min()) for s in d.surfaces for o in _outlines(s))
-    z_bodies = [b.nose_m[2] - b.half_height_m for b in d.bodies]
+    z_bodies = [_body_low_z(b) for b in d.bodies]
     return min([z_surfaces, *z_bodies])
 
 
