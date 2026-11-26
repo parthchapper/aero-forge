@@ -147,7 +147,8 @@ def planar_notes(surface: Surface, c: float) -> list[str]:
     if planar is None and c > 0.0 and len(surface.sections) > 1:
         return [
             f"coarseness {c:.2f}: {surface.name}: no strip merge was accepted (it squeezed an "
-            "edge, flipped or bent a face, or left an end cap unflat): the section vertices stay"
+            "edge, flipped or bent a face, left an end cap unflat or changed the wing volume too "
+            "much): the section vertices stay"
         ]
     if planar is None or (not planar.merged and not planar.blocked):
         return []

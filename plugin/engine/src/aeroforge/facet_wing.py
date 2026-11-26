@@ -85,6 +85,40 @@ def _joints(
     return out
 
 
+def _faces(v: np.ndarray, k: int, n_rings: int) -> list[tuple[int, ...]]:
+    """Faces of the loft of n_rings rings of k corners: the root cap, the strips, the tip cap."""
+    faces: list[tuple[int, ...]] = [tuple(reversed(range(k)))]
+    for j in range(n_rings - 1):
+        faces += _strip(v, j * k, (j + 1) * k, k)
+    faces.append(tuple(range((n_rings - 1) * k, n_rings * k)))
+    return faces
+
+
+def _polyhedron(v: np.ndarray, k: int, n_rings: int) -> Polyhedron:
+    """The loft as a Polyhedron, faces outward (flipped when the rings run the other way)."""
+    poly = Polyhedron(
+        vertices_m=tuple((float(x), float(y), float(z)) for x, y, z in v),
+        faces=tuple(_faces(v, k, n_rings)),
+    )
+    if volume_m3(poly) < 0.0:
+        poly = poly.model_copy(update={"faces": tuple(tuple(reversed(f)) for f in poly.faces)})
+    return poly
+
+
+def _merge_holds(
+    v0: np.ndarray, planar: Planar, k: int, caps: list[tuple[int, ...]], n_rings: int
+) -> bool:
+    """A planarisation is taken only when no edge is squeezed, every merged quad stays simple and
+    the caps flat, and the wing keeps its volume within coarse_volume_ratio_max either way (the
+    minimum-norm solve can flatten a thin wing into one plane, every quad then trivially flat)."""
+    if not (_edges_kept(v0, planar.vertices, k) and planarisation_holds(v0, planar, caps)):
+        return False
+    base = volume_m3(_polyhedron(v0, k, n_rings))
+    ratio = volume_m3(_polyhedron(planar.vertices, k, n_rings)) / base if base > 0.0 else 0.0
+    limit = number("coarse_volume_ratio_max")
+    return 1.0 / limit <= ratio <= limit
+
+
 @lru_cache(maxsize=256)
 def wing_geometry(surface: Surface) -> tuple[Polyhedron, Planar | None]:
     """Closed solid of flat faces of a faceted surface (airfoil_facets > 0): each section's
@@ -109,21 +143,12 @@ def wing_geometry(surface: Surface) -> tuple[Polyhedron, Planar | None]:
         joints = _joints(v, quads, k, c)
         for shrink in (1.0, 0.5, 0.25):  # a merge that squeezes an edge of a small tip section
             planar = planarize(v, quads, caps, fixed, np.minimum(part, local) * shrink, joints)
-            if _edges_kept(v, planar.vertices, k) and planarisation_holds(v, planar, caps):
+            if _merge_holds(v, planar, k, caps, len(rings)):
                 v = planar.vertices
                 break
         else:
             planar = None
-    faces: list[tuple[int, ...]] = [tuple(reversed(range(k)))]
-    for j in range(len(rings) - 1):
-        faces += _strip(v, j * k, (j + 1) * k, k)
-    faces.append(tuple(range((len(rings) - 1) * k, len(rings) * k)))
-    poly = Polyhedron(
-        vertices_m=tuple((float(x), float(y), float(z)) for x, y, z in v), faces=tuple(faces)
-    )
-    if volume_m3(poly) < 0.0:
-        poly = poly.model_copy(update={"faces": tuple(tuple(reversed(f)) for f in poly.faces)})
-    return poly, planar
+    return _polyhedron(v, k, len(rings)), planar
 
 
 def wing_polyhedron(surface: Surface) -> Polyhedron:

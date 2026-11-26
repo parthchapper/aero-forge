@@ -27,6 +27,7 @@ FACETS = ("smooth", "3", "4", "5", "6", "7", "8")
 COARSE = ("off", "low", "mid", "high")
 BRIEFS = ("stub", "small_boxes")
 CAP_OFF_PLANE, FLIPPED_QUAD, CONCAVE_CAP = 55, 1168, 6  # audit seeds (U3 audit, 2026-11-26)
+FLATTENED = (1004, 1045, 1156, 1167, 1256, 2209, 2255)  # the merge flattened the wing: volume 0
 
 
 def _design(i: int) -> Design:
@@ -81,6 +82,13 @@ def test_wings_that_once_failed_to_build_are_flat_closed_and_build(i: int) -> No
         assert planarity_m(poly) <= number("facet_geom_tol_m")
         assert is_closed(poly)
         assert surface_solid(s).isValid()
+
+
+@pytest.mark.parametrize("i", FLATTENED)
+def test_a_wing_the_merge_once_flattened_has_volume_and_builds(i: int) -> None:
+    for s in (s for s in _design(i).surfaces if s.airfoil_facets):
+        poly = wing_polyhedron(s)
+        assert volume_m3(poly) > 0.0 and surface_solid(s).isValid()
 
 
 def test_a_rejected_strip_merge_is_a_decoder_note() -> None:
