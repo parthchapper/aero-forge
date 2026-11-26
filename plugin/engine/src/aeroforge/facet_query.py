@@ -205,11 +205,20 @@ def _triangles(poly: Polyhedron) -> tuple[np.ndarray, np.ndarray]:
     return np.array(tris), np.array(owner)
 
 
-def face_areas_m2(poly: Polyhedron) -> np.ndarray:
-    """Area [m^2] of every face, in face order."""
+def _face_vectors(poly: Polyhedron) -> np.ndarray:
+    """Area vector of every face (Newell: the sum of its fan triangles' cross products over 2), so
+    a concave planar face counts its true area, not the sum of absolute triangle areas."""
     tris, owner = _triangles(poly)
-    area = np.linalg.norm(np.cross(tris[:, 1] - tris[:, 0], tris[:, 2] - tris[:, 0]), axis=1) / 2.0
-    return np.bincount(owner, weights=area, minlength=len(poly.faces))
+    cross = np.cross(tris[:, 1] - tris[:, 0], tris[:, 2] - tris[:, 0]) / 2.0
+    return np.stack(
+        [np.bincount(owner, weights=cross[:, k], minlength=len(poly.faces)) for k in range(3)],
+        axis=1,
+    )
+
+
+def face_areas_m2(poly: Polyhedron) -> np.ndarray:
+    """Area [m^2] of every face, in face order (exact for a simple planar polygon, any shape)."""
+    return np.linalg.norm(_face_vectors(poly), axis=1)
 
 
 def surface_area_m2(poly: Polyhedron) -> float:
@@ -220,8 +229,11 @@ def surface_area_m2(poly: Polyhedron) -> float:
 def area_centroid_m(poly: Polyhedron) -> np.ndarray:
     """(x, y, z) [m] of the centroid of the skin (area-weighted), body frame: z follows the
     tail upsweep."""
-    tris, _ = _triangles(poly)
-    area = np.linalg.norm(np.cross(tris[:, 1] - tris[:, 0], tris[:, 2] - tris[:, 0]), axis=1) / 2.0
+    tris, owner = _triangles(poly)
+    vec = _face_vectors(poly)
+    unit = vec / np.maximum(np.linalg.norm(vec, axis=1, keepdims=True), np.finfo(float).tiny)
+    cross = np.cross(tris[:, 1] - tris[:, 0], tris[:, 2] - tris[:, 0]) / 2.0
+    area = np.einsum("ij,ij->i", cross, unit[owner])  # signed: a concave face's overlap cancels
     return (area[:, None] * tris.mean(axis=1)).sum(axis=0) / area.sum()
 
 

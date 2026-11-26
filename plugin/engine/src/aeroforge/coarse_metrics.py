@@ -144,6 +144,11 @@ def coarse_rows(design: Design) -> list[str]:
 def planar_notes(surface: Surface, c: float) -> list[str]:
     """Notes on the vertex moves that made the twisted quads of a faceted wing flat."""
     planar = wing_geometry(surface)[1]
+    if planar is None and c > 0.0 and len(surface.sections) > 1:
+        return [
+            f"coarseness {c:.2f}: {surface.name}: no strip merge was accepted (it squeezed an "
+            "edge, flipped or bent a face, or left an end cap unflat): the section vertices stay"
+        ]
     if planar is None or (not planar.merged and not planar.blocked):
         return []
     part = _part_length(surface)

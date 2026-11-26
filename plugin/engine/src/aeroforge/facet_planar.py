@@ -147,6 +147,49 @@ def planarize(
             groups = [g for g in groups if len(g[2]) == 1 or gone[2][0] not in g[2]]
 
 
+def _newell(p: np.ndarray) -> np.ndarray:
+    """Unscaled normal of the polygon p (n, 3): its length is twice the area."""
+    return np.cross(p, np.roll(p, -1, axis=0)).sum(axis=0)
+
+
+def _crosses(a: np.ndarray, b: np.ndarray, c: np.ndarray, d: np.ndarray) -> bool:
+    """The 2D segments ab and cd cross properly."""
+
+    def side(o: np.ndarray, p: np.ndarray, q: np.ndarray) -> float:
+        return float((p[0] - o[0]) * (q[1] - o[1]) - (p[1] - o[1]) * (q[0] - o[0]))
+
+    return side(a, b, c) * side(a, b, d) < 0.0 and side(c, d, a) * side(c, d, b) < 0.0
+
+
+def _bowtie(p: np.ndarray) -> bool:
+    """The corners p (4, 3) of a planar quad run in a figure of eight: opposite edges cross."""
+    n = _newell(p)
+    e1 = (p[1] - p[0]) / np.linalg.norm(p[1] - p[0])
+    e2 = np.cross(n / np.linalg.norm(n), e1)
+    xy = np.stack([(p - p[0]) @ e1, (p - p[0]) @ e2], axis=1)
+    return _crosses(xy[0], xy[1], xy[2], xy[3]) or _crosses(xy[1], xy[2], xy[3], xy[0])
+
+
+def planarisation_holds(v0: np.ndarray, planar: Planar, caps: list[tuple[int, ...]]) -> bool:
+    """The vertices of `planar` leave every merged quad simple (no figure of eight), facing as at
+    v0 and not collapsed, and every cap ring flat to facet_geom_tol_m: the Newton step meets
+    its own residual only, which a near-collinear cap basis or a flipped quad can satisfy."""
+    v = planar.vertices
+    for q in planar.merged:
+        n0, n1 = _newell(v0[list(q)]), _newell(v[list(q)])
+        l0, l1 = float(np.linalg.norm(n0)), float(np.linalg.norm(n1))
+        if l1 < 0.5 * l0 or float(n0 @ n1) < 0.5 * l0 * l1 or _bowtie(v[list(q)]):
+            return False
+    for ring in caps:
+        p = v[list(ring)]
+        n = _newell(p)
+        if float(np.abs((p - p.mean(axis=0)) @ n).max()) / np.linalg.norm(n) > number(
+            "facet_geom_tol_m"
+        ):
+            return False
+    return True
+
+
 def _face_normals(poly: Polyhedron) -> np.ndarray:
     """Unscaled Newell normals of the faces (length = twice the area)."""
     v = np.asarray(poly.vertices_m)

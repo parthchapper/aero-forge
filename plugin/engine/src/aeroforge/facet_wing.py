@@ -11,7 +11,7 @@ import numpy as np
 
 from aeroforge.constants import number
 from aeroforge.facet_decimate import min_crease_deg, unpack
-from aeroforge.facet_planar import Planar, _normal, planarize
+from aeroforge.facet_planar import Planar, _normal, planarisation_holds, planarize
 from aeroforge.facet_query import volume_m3
 from aeroforge.models import Polyhedron, Surface
 from aeroforge.shapes import section_outline
@@ -109,7 +109,7 @@ def wing_geometry(surface: Surface) -> tuple[Polyhedron, Planar | None]:
         joints = _joints(v, quads, k, c)
         for shrink in (1.0, 0.5, 0.25):  # a merge that squeezes an edge of a small tip section
             planar = planarize(v, quads, caps, fixed, np.minimum(part, local) * shrink, joints)
-            if _edges_kept(v, planar.vertices, k):
+            if _edges_kept(v, planar.vertices, k) and planarisation_holds(v, planar, caps):
                 v = planar.vertices
                 break
         else:
