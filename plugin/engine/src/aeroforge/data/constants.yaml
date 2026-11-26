@@ -226,6 +226,7 @@ knob_rank_novelty_weight: {r0: 0.2, r1: 1.0, unit: "-", source: "user, novelty p
 knob_critic_strangeness_weight: {r0: 1.0, r1: 3.0, unit: "-", source: "user, novelty plan step 7: visual critic weight on strangeness (read by step 12)"}
 search_winners: {value: 3, unit: count, source: "SPEC §9: first 3 passing tier 2 are built"}
 search_workers: {value: 16, unit: count, source: "worker processes (probe on this 22-thread host: 16 -> 4.4 /s, 22 -> 4.0 /s, 11 -> 3.9 /s)"}
+candidate_timeout_s: {value: 120.0, unit: s, source: "U3 audit ASSUMED: wall-clock limit of one candidate (decode, checks) in a search worker; a decode takes 1-10 s, a tier-2 check under 60 s; a candidate over the limit is dropped with a reason"}
 # step 5: internals (SPEC §10) and deliverables (SPEC §11)
 joiner_length_m: {value: 0.08, unit: m, source: "assumed spar joiner rod length (40 mm each side of the joint)"}
 hinge_marker_d_m: {value: 0.002, unit: m, source: "assumed hinge-line marker rod diameter (capped to hinge_fill_frac of the local thickness)"}

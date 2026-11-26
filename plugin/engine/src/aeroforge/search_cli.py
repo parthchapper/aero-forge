@@ -19,7 +19,13 @@ from threadpoolctl import threadpool_limits
 
 from aeroforge.areas import areas
 from aeroforge.brief import effective_randomness, load_brief
-from aeroforge.candidate import Candidate, decoded_desc, evaluate_candidate, verify_candidate
+from aeroforge.candidate import (
+    Candidate,
+    decoded_desc,
+    evaluate_candidate,
+    pool_desc,
+    verify_candidate,
+)
 from aeroforge.constants import knob, number
 from aeroforge.descriptor import DESC_SIZE, median_nearest, novelty
 from aeroforge.genome import decode, random_genomes
@@ -93,7 +99,7 @@ def _descs(
     pool: ProcessPoolExecutor, genomes: np.ndarray, req: Requirements
 ) -> list[tuple[float, ...] | None]:
     """Decoded descriptors in input order (None for genomes that do not decode)."""
-    return list(pool.map(functools.partial(decoded_desc, req=req), genomes, chunksize=8))
+    return list(pool.map(functools.partial(pool_desc, req=req), genomes, chunksize=8))
 
 
 def resolve_seed(seed: int | None, b: Brief) -> int:
