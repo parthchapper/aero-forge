@@ -11,8 +11,9 @@ from aeroforge.airfoil import local_thickness_frac
 from aeroforge.align import strict_family
 from aeroforge.constants import constant, number
 from aeroforge.faceted_body import firewall_attach
+from aeroforge.finish import fin_capped
 from aeroforge.genetable import family_of, gene_table, unpack
-from aeroforge.genome import decode, fin_capped
+from aeroforge.genome import decode
 from aeroforge.layout import host_end
 from aeroforge.models import Body, Design, Requirements, Surface
 from aeroforge.shapes import MIRROR_Y, component_points, inside_body

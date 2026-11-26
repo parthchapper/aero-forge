@@ -16,14 +16,10 @@ from aeroforge.brief import BRIEFS, brief_requirements
 from aeroforge.constants import number
 from aeroforge.deliver_cli import build_cmd, render_cmd, report_cmd
 from aeroforge.demo_cli import demo_cmd
+from aeroforge.finish import fin_capped
 from aeroforge.gallery import Tile, gallery_html
 from aeroforge.genetable import pin_choice
-from aeroforge.genome import (
-    DecodeError,
-    decode,
-    fin_capped,
-    random_genomes,
-)
+from aeroforge.genome import DecodeError, decode, random_genomes
 from aeroforge.geom import GeometryError, build_parts, exact_volumes_m3
 from aeroforge.mesh import MeshError, tessellate
 from aeroforge.models import Requirements

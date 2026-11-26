@@ -250,3 +250,11 @@ def translate_x(design: Design, dx_m: float) -> Design:
     return design.model_copy(
         update={"surfaces": surfaces, "bodies": bodies, "propulsors": props, "boxes": boxes}
     )
+
+
+FIN_CAP_NOTE = "fins capped"
+
+
+def fin_capped(d: Design) -> bool:
+    """The decoder shrank a fin to the fin area or height cap (step 2 round 2)."""
+    return any(n.startswith(FIN_CAP_NOTE) for n in d.notes)

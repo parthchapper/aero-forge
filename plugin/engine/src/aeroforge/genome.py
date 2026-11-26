@@ -7,9 +7,10 @@ import numpy as np
 from aeroforge.align import strict_family, strict_notes
 from aeroforge.assemble import Context, Layout, host_name, solve_layout, surface_area
 from aeroforge.body_align import BodySnap, initial_shape, next_shape, uncoarsened
+from aeroforge.coarse_fallback import coarse_body_fails
 from aeroforge.constants import number
 from aeroforge.facet_ends import FacetError
-from aeroforge.finish import finish_design
+from aeroforge.finish import FIN_CAP_NOTE, finish_design
 from aeroforge.genetable import Genes, family_of, surface_count, unpack
 from aeroforge.genetable import random_genomes as random_genomes  # re-export
 from aeroforge.layout import boxes_in_wing
@@ -372,28 +373,28 @@ def _attempt(
     return finish_design(ctx, specs, lay, result, pusher, pattern, notes)
 
 
+def _give_up_coarse(fam: Family, state: State, why: str) -> State:
+    """The state with the genes' body (coarsening given up, noted) for the next pass."""
+    snap = uncoarsened(fam, state.body_shape, why)
+    return replace(state, body_shape=snap, notes=(*state.notes, *snap.notes))
+
+
 def decode(genome: np.ndarray, req: Requirements, adjust: Adjust = NO_ADJUST) -> Design:
     """Decode a genome (with balance adjustments) into a complete, invariant-satisfying Design."""
     v = unpack(genome)
     fam = strict_family(v, family_of(v))
     state = _initial_state(v, fam, adjust)
     for _ in range(int(number("decode_max_passes"))):
+        coarse = state.body_shape is not None and state.body_shape.shape.coarseness > 0.0
         try:
             outcome = _attempt(v, fam, req, state, adjust)
         except FacetError as e:  # the coarse body cannot hold the design: the genes' body instead
-            if state.body_shape is None or state.body_shape.shape.coarseness <= 0.0:
+            if not coarse:
                 raise
-            snap = uncoarsened(fam, state.body_shape, str(e))
-            outcome = replace(state, body_shape=snap, notes=(*state.notes, *snap.notes))
+            outcome = _give_up_coarse(fam, state, str(e))
+        if isinstance(outcome, Design) and coarse and (why := coarse_body_fails(outcome, req)):
+            outcome = _give_up_coarse(fam, state, f"fit margins {why}")
         if isinstance(outcome, Design):
             return outcome
         state = outcome
     raise DecodeError("decode repair loop did not settle")
-
-
-FIN_CAP_NOTE = "fins capped"
-
-
-def fin_capped(d: Design) -> bool:
-    """The decoder shrank a fin to the fin area or height cap (step 2 round 2)."""
-    return any(n.startswith(FIN_CAP_NOTE) for n in d.notes)

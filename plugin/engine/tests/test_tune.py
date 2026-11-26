@@ -7,7 +7,8 @@ import yaml
 
 from aeroforge.brief import brief_requirements
 from aeroforge.cli import main
-from aeroforge.genome import decode, fin_capped, random_genomes
+from aeroforge.finish import fin_capped
+from aeroforge.genome import decode, random_genomes
 from aeroforge.models import Design
 from aeroforge.style import FEATURES, StyleModel, features, model_from_table, scores
 from aeroforge.tune import (
