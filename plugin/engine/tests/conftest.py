@@ -176,3 +176,8 @@ def sample_prepared(
         prepare(g, sample_req, sample_brief.payload_mass_kg)
         for g in legacy_genomes[:BALANCED_GENOMES]
     ]
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Log every test result to testUpdate.md as it finishes (tests/progress_log.py)."""
+    config.pluginmanager.import_plugin("progress_log")
