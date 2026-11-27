@@ -7,14 +7,18 @@ import trimesh
 
 import aeroforge.render as render
 from aeroforge.brief import load_brief
+from aeroforge.candidate import decoded_desc
 from aeroforge.checks import CheckReport
 from aeroforge.deliver_cli import design_novelty
+from aeroforge.descriptor import novelty
 from aeroforge.hardpoints import containment_failures, hardpoints
 from aeroforge.internals import Internal, expected_names, missing, outline
 from aeroforge.mesh import PartMesh
 from aeroforge.models import Design, Requirements, Spar
 from aeroforge.physics_cli import load_design, write_design
+from aeroforge.reference import reference_genome, reference_names
 from aeroforge.report import report_md
+from aeroforge.search_cli import load_folder
 from aeroforge.shapes import inside_loft
 
 WINNERS = Path(__file__).parent / "fixtures" / "winners"
@@ -177,7 +181,12 @@ def test_report_nearest_reference_is_no_closer_than_the_search_novelty(tmp_path:
     for name in ("brief.yaml", "requirements.json"):
         (tmp_path / name).write_bytes((WINNERS / name).read_bytes())
     n = design_novelty(np.array(w["genome"]), tmp_path, tmp_path / "none.jsonl")
-    assert n.reference_distance >= w["novelty"] - 1e-9
+    # The fixture's stored novelty is a v1 (16-number) value; U4 compares in descriptor v2, so the
+    # search's own novelty is recomputed from the genome against the same references.
+    _, req = load_folder(tmp_path)
+    x = np.array(decoded_desc(np.array(w["genome"]), req))
+    refs = np.array([decoded_desc(reference_genome(r), req) for r in reference_names()])
+    assert n.reference_distance >= novelty(x, refs) - 1e-9
 
 
 def _thin_tube_mesh() -> PartMesh:
