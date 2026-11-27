@@ -76,17 +76,22 @@ def lifting_terms(d: Design, keys: tuple[str, str, str]) -> np.ndarray:
     return np.concatenate([hx, hy, hz, [vertical]])
 
 
-def desc_v1(d: Design) -> np.ndarray:
-    """Lifting-area shares along x (5), |y| (4), z (3); vertical-area fraction; surface,
-    joined-tip and body counts, each scaled to [0, 1]."""
-    terms = lifting_terms(d, ("desc_x_centres", "desc_y_centres", "desc_z_centres"))
+def count_terms(d: Design) -> np.ndarray:
+    """Surface, joined-tip and body counts (a mirrored body counts twice), each scaled to [0, 1]."""
     bodies = sum(2 if b.mirrored else 1 for b in d.bodies)
     counts = [
         len(d.surfaces) / number("desc_surface_count_max"),
         sum(s.joined_to is not None for s in d.surfaces) / number("desc_joined_count_max"),
         bodies / number("desc_body_count_max"),
     ]
-    out = np.concatenate([terms, np.clip(counts, 0.0, 1.0)])
+    return np.clip(counts, 0.0, 1.0)
+
+
+def desc_v1(d: Design) -> np.ndarray:
+    """Lifting-area shares along x (5), |y| (4), z (3); vertical-area fraction; surface,
+    joined-tip and body counts, each scaled to [0, 1]."""
+    terms = lifting_terms(d, ("desc_x_centres", "desc_y_centres", "desc_z_centres"))
+    out = np.concatenate([terms, count_terms(d)])
     if out.shape != (DESC_SIZE_V1,):
         raise DescriptorError(f"descriptor has {out.shape[0]} numbers, expected {DESC_SIZE_V1}")
     return out

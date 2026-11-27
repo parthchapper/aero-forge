@@ -1453,3 +1453,41 @@ candidate repeats the decode many times, so it is very slow, not a loop in the p
 - Fast suite: 450 passed, 1 skipped, 1 failed (test_internals nearest-reference, fixed, re-run passes).
 - Slow suite file by file (u4_gate/slow3.log): 150 passed, 18 skipped, 1 failed (test_deliver past design, fixed, file re-run 20 passed).
 - Both failures were U4 fixture issues (v1 stored values / v1 history row); no xfails, no unrelated failures.
+
+## run 2026-11-28 01:51:33: pytest -q -x --tb=short -p no:cacheprovider -m not slow tests/test_descriptor_v2.py tests/test_descriptor.py tests/test_search.py
+
+## run 2026-11-28 01:51:43: pytest -q -x --tb=short -p no:cacheprovider -m not slow tests/test_descriptor_v2.py tests/test_descriptor.py tests/test_search.py
+- 01:51:48 PASSED tests/test_descriptor_v2.py::test_every_number_is_named_and_documented_in_the_spec (0.0 s)
+- 01:52:43 PASSED tests/test_descriptor_v2.py::test_v1_descriptor_is_kept_with_its_sixteen_numbers[smoke] (0.0 s)
+- 01:52:43 PASSED tests/test_descriptor_v2.py::test_the_first_sixteen_numbers_are_descriptor_v1_unchanged[smoke] (0.1 s)
+- 01:52:43 PASSED tests/test_descriptor_v2.py::test_top_and_front_shares_match_the_area_module[smoke] (0.2 s)
+- 01:52:44 PASSED tests/test_descriptor.py::test_desc_is_identical_under_slot_reordering[smoke] (0.7 s)
+- 01:52:52 PASSED tests/test_descriptor_v2.py::test_designs_that_differ_only_in_body_length_get_different_descriptors (0.0 s)
+- 01:52:55 PASSED tests/test_descriptor_v2.py::test_a_flat_panel_body_and_a_smooth_one_under_the_same_wings_differ (3.4 s)
+- 01:52:55 PASSED tests/test_descriptor_v2.py::test_the_body_changes_the_descriptor_only_through_the_body_numbers (0.0 s)
+- 01:52:55 PASSED tests/test_descriptor_v2.py::test_a_body_that_leaves_the_wing_has_no_blend (0.0 s)
+- 01:53:07 PASSED tests/test_descriptor_v2.py::test_the_side_shadow_of_a_flat_panel_body_matches_a_triangle_raster (11.8 s)
+- 01:53:07 PASSED tests/test_descriptor_v2.py::test_the_side_shadow_of_a_smooth_body_matches_its_section_integral (0.0 s)
+- 01:53:07 PASSED tests/test_descriptor_v2.py::test_a_design_over_the_bomb_cap_is_never_a_finalist (0.0 s)
+- 01:53:07 PASSED tests/test_descriptor_v2.py::test_contributions_name_the_three_numbers_that_set_the_distance (0.0 s)
+- 01:53:07 PASSED tests/test_descriptor_v2.py::test_the_report_lists_the_contributors (0.0 s)
+- 01:53:07 PASSED tests/test_descriptor_v2.py::test_history_keeps_only_rows_of_the_current_descriptor (0.0 s)
+- 02:06:22 PASSED tests/test_descriptor.py::test_desc_is_twenty_five_numbers_in_unit_range (1.3 s)
+- 02:06:23 PASSED tests/test_descriptor.py::test_reference_set_has_forty_entries_that_decode_on_every_brief (0.3 s)
+- 02:06:23 PASSED tests/test_descriptor.py::test_conventional_canard_and_flying_wing_are_pairwise_beyond_d_min (0.2 s)
+- 02:06:23 PASSED tests/test_descriptor.py::test_novelty_is_the_nearest_distance (0.0 s)
+- 02:06:23 PASSED tests/test_descriptor.py::test_reference_base_cycle_is_rejected (0.0 s)
+- 02:06:23 PASSED tests/test_descriptor.py::test_shaft_through_a_fin_has_a_negative_margin (0.0 s)
+- 02:06:23 PASSED tests/test_descriptor.py::test_shaft_check_ignores_the_shaft_inside_bodies (0.0 s)
+- 02:06:23 PASSED tests/test_search.py::test_objective_is_style_when_passable_else_minus_bar_violation (0.0 s)
+- 02:06:23 PASSED tests/test_search.py::test_cad_failure_moves_to_the_next_finalist (0.0 s)
+- 02:06:23 PASSED tests/test_search.py::test_select_keeps_the_novelty_band_and_drops_repeats (0.0 s)
+- 02:06:23 PASSED tests/test_search.py::test_a_qualifier_with_a_huge_power_failure_can_still_rank_first (0.0 s)
+- 02:06:23 PASSED tests/test_search.py::test_at_r1_the_most_novel_qualifier_ranks_first_and_at_r0_style_decides (0.0 s)
+- 02:06:23 PASSED tests/test_search.py::test_the_ranking_ignores_total_violation (0.0 s)
+- 02:06:23 PASSED tests/test_search.py::test_all_finalists_are_at_least_d_min_apart_and_the_best_scores_first (0.0 s)
+- 02:06:23 PASSED tests/test_search.py::test_rank01_spreads_values_over_zero_one_with_mean_ranks_for_ties (0.0 s)
+- 02:06:23 PASSED tests/test_search.py::test_finalist_entries_carry_the_shadow_areas (0.0 s)
+- 02:06:23 PASSED tests/test_search.py::test_accepted_keeps_passable_rows_with_at_most_max_other_failures_in_score_order (0.0 s)
+- 02:06:24 PASSED tests/test_search.py::test_accept_other_failures_max_is_2_at_r0_and_covers_every_check_at_r1 (0.0 s)
+- 02:06:24 PASSED tests/test_search.py::test_at_r1_a_finalist_failing_power_energy_and_efficiency_is_still_delivered (0.0 s)

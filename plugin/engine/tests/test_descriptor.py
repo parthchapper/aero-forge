@@ -20,7 +20,7 @@ def test_desc_is_identical_under_slot_reordering(designs: list[Design]) -> None:
         assert np.array_equal(desc(shuffled), desc(d))
 
 
-def test_desc_is_twenty_numbers_in_unit_range(full_designs: list[Design]) -> None:
+def test_desc_is_twenty_five_numbers_in_unit_range(full_designs: list[Design]) -> None:
     x = np.array([desc(d) for d in full_designs[:SLOT_DESIGNS]])
     assert x.shape == (SLOT_DESIGNS, DESC_SIZE)
     assert np.isfinite(x).all() and x.min() >= 0.0 and x.max() <= 1.0

@@ -71,7 +71,9 @@ def history_rows(path: Path) -> list[dict[str, object]]:
     if not path.is_file():
         return []
     rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
-    kept = [r for r in rows if r.get("desc_version") == DESC_VERSION]
+    kept = [
+        r for r in rows if r.get("desc_version") == DESC_VERSION and len(r["desc"]) == DESC_SIZE
+    ]
     if len(kept) < len(rows):
         log.warning("%s: %d rows of an older descriptor skipped", path, len(rows) - len(kept))
     return kept

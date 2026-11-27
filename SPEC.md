@@ -185,18 +185,18 @@ CAD build succeeds for ≥ 98 % of random genomes; a failure raises a typed erro
 - Every assumed constant lives in constants.yaml with unit and source note, and is listed in CHANGELOG "Assumed constants".
 
 ## 9 Novelty and search
-- `desc(Design)` → R^D in [0,1], from geometry only, invariant to slot order and encoding. 0.3 (kept as `descriptor_v1.desc_v1` for the baseline comparison): R^16 = lifting-area histograms along x (5), y (4), z (3); vertical-area fraction; surface count; joined-tip count; body count. (U4) **v2, R^20**, in this order (`descriptor.NAMES`):
-  1. 0-10 lifting surfaces: lift share along x (4 bins about the lifting-area centroid, in √S), along |y|/semi-span (3), along z (2); vertical-area fraction; surface count ÷ 4. The v1 terms on coarser bins (and without the joined-tip and body counts, which pods and the body terms now cover) to fit 20 numbers.
-  2. 11 `body_top_share`, 12 `body_side_share`, 13 `body_front_share`: body shadow ÷ total shadow in that view (areas.py scan lines; pods count as body).
-  3. 14 `body_wing_blend`: part of the wing shadow seen from above that lies inside the body shadow (overlap ÷ wing shadow).
-  4. 15 `body_fineness`: centre body (the longest) length ÷ the diameter of the circle with the area of its widest section's bounding box, ÷ `desc2_fineness_max`.
-  5. 16 `body_panels`: sheets of a flat-panel centre body ÷ `desc2_panels_max`; 17 `body_crease_sharpness`: mean crease angle between its neighbouring sheets ÷ `desc2_crease_ref_deg`; 18 `body_face_directions`: 3° clusters of its sheet normals ÷ `desc2_directions_max`. All 0 for a smooth or absent body.
-  6. 19 `pods`: pod instances ÷ `desc2_pods_max`.
+- `desc(Design)` → R^D in [0,1], from geometry only, invariant to slot order and encoding. 0.3 (kept as `descriptor_v1.desc_v1` for the baseline comparison): R^16 = lifting-area histograms along x (5), y (4), z (3); vertical-area fraction; surface count; joined-tip count; body count. (U4) **v2, R^25**, in this order (`descriptor.NAMES`):
+  1. 0-15 the 0.3 numbers, unchanged and in the same order: lift share along x (5 bins about the lifting-area centroid, in √S), along |y|/semi-span (4), along z (3); vertical-area fraction; surface count ÷ 4; joined-tip count; body count (a mirrored body counts twice). (The first plan fitted v2 into 20 numbers with coarser bins and no counts; it raised the reference pairs closer than 0.5 x d_min from 10 to 31, so the limit was raised: user, U4.)
+  2. 16 `body_top_share`, 17 `body_side_share`, 18 `body_front_share`: body shadow ÷ total shadow in that view (areas.py scan lines; pods count as body).
+  3. 19 `body_wing_blend`: part of the wing shadow seen from above that lies inside the body shadow (overlap ÷ wing shadow).
+  4. 20 `body_fineness`: centre body (the longest) length ÷ the diameter of the circle with the area of its widest section's bounding box, ÷ `desc2_fineness_max`.
+  5. 21 `body_panels`: sheets of a flat-panel centre body ÷ `desc2_panels_max`; 22 `body_crease_sharpness`: mean crease angle between its neighbouring sheets ÷ `desc2_crease_ref_deg`; 23 `body_face_directions`: 3° clusters of its sheet normals ÷ `desc2_directions_max`. All 0 for a smooth or absent body.
+  6. 24 `pods`: pod instances ÷ `desc2_pods_max`.
   Every number is clipped to [0, 1]; the constants are `desc2_*` rows of constants.yaml (assumed ones are marked).
 - Bomb cap (U4): a design whose `body_top_share` is above `bomb_cap` (0.45) is never a finalist, so a big body with stub wings cannot win on novelty.
 - `novelty(D)` = min Euclidean distance from desc(D) to reference ∪ history.
 - Reference set: `data/reference.yaml`, 44 known configurations; each entry = name + sparse gene overrides (`base: <name>` allowed), decoded by `genome.decode` with the full ranges.
-- History: `~/.aero-forge/history.jsonl` (id, seed, brief hash, desc). Appended on delivery only. From U4 each row carries `desc_version` 2; rows without it (0.3, 16 numbers) are not read (logged). Never rewritten.
+- History: `~/.aero-forge/history.jsonl` (id, seed, brief hash, desc). Appended on delivery only. From U4 each row carries `desc_version` 2; rows without it (0.3, 16 numbers) or with another length are not read (logged). Never rewritten.
 - `d_min` = median nearest-neighbour distance inside the reference set.
 - Search (pyribs CVT archive): solution = genome; objective = style score if passable, else −violation; measures = desc. Default budget 5,000 tier-1 evaluations, spawn worker processes.
 - Randomness r sets the novelty band [bottom, top] × d_min (`knob_*` rows with r0/r1). (U6) `alienness` moves several knobs together by linear interpolation (`a0`/`a1`): a floor on r, `exclude_layouts`, `min_conventional_distance` (× d_min), `bomb_cap`, `critic_strangeness_weight`, `novelty_style_weight`. Anything the user sets wins (precedence, §4).

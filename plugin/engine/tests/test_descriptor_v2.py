@@ -14,6 +14,7 @@ from aeroforge.checks import CheckReport, CheckResult
 from aeroforge.descriptor import (
     BODY_TOP_INDEX,
     DESC_SIZE,
+    LIFT_SIZE,
     NAMES,
     contributions,
     desc,
@@ -27,14 +28,14 @@ from aeroforge.search import Scored, over_bomb_cap, select
 from aeroforge.search_cli import append_history, read_history
 
 SPEC = Path(__file__).parents[3] / "SPEC.md"
-LIFT_NUMBERS = 11  # the first 11 numbers read lifting surfaces only
+LIFT_NUMBERS = 16  # the first 16 numbers are descriptor v1: lifting surfaces and counts
 BAND_R = 0.5
 D_MIN = 0.2
 
 
 def test_every_number_is_named_and_documented_in_the_spec() -> None:
     text = SPEC.read_text(encoding="utf-8")
-    assert len(NAMES) == DESC_SIZE == 20
+    assert len(NAMES) == DESC_SIZE == 25 and LIFT_NUMBERS == LIFT_SIZE
     for name in NAMES[LIFT_NUMBERS:]:
         assert f"`{name}`" in text, name
 
@@ -49,6 +50,11 @@ def test_v2_is_in_unit_range_on_one_thousand_genomes(full_designs: list[Design])
     x = np.array([desc(d) for d in full_designs])
     assert x.shape == (len(full_designs), DESC_SIZE) and len(full_designs) == 1000
     assert np.isfinite(x).all() and x.min() >= 0.0 and x.max() <= 1.0
+
+
+def test_the_first_sixteen_numbers_are_descriptor_v1_unchanged(designs: list[Design]) -> None:
+    for d in designs[:20]:
+        assert np.array_equal(desc(d)[:LIFT_NUMBERS], desc_v1(d))
 
 
 def _scaled_body(d: Design, factor: float) -> Design:
@@ -238,4 +244,8 @@ def test_history_keeps_only_rows_of_the_current_descriptor(
         rows = read_history(path)
     assert rows.shape == (1, DESC_SIZE) and rows[0, 0] == 0.2
     assert "older descriptor" in caplog.text
+    stale = {"id": "stale", "desc": [0.3] * 20, "desc_version": 2}  # a 20-number layout
+    with path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(stale) + "\n")
+    assert read_history(path).shape == (1, DESC_SIZE)
     assert json.loads(path.read_text(encoding="utf-8").splitlines()[0]) == old
