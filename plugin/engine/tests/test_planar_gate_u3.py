@@ -7,6 +7,7 @@ import pytest
 
 from aeroforge.brief import brief_requirements
 from aeroforge.constants import number
+from aeroforge.facet_ends import FacetError
 from aeroforge.facet_planar import Planar, planarisation_holds
 from aeroforge.facet_query import (
     area_centroid_m,
@@ -16,12 +17,13 @@ from aeroforge.facet_query import (
     surface_area_m2,
     volume_m3,
 )
-from aeroforge.facet_wing import wing_polyhedron
+from aeroforge.facet_wing import _polyhedron, wing_polyhedron
 from aeroforge.genetable import pin_choice
-from aeroforge.genome import decode, random_genomes
+from aeroforge.genome import DecodeError, decode, random_genomes
 from aeroforge.geom import surface_solid
-from aeroforge.models import Design, Polyhedron
+from aeroforge.models import Design, Polyhedron, Surface
 from aeroforge.panels import design_panels, flat_outline_mm
+from aeroforge.shapes import section_outline
 
 FACETS = ("smooth", "3", "4", "5", "6", "7", "8")
 COARSE = ("off", "low", "mid", "high")
@@ -122,3 +124,28 @@ def test_the_planarisation_gate_rejects_a_cap_off_its_plane() -> None:
     none: tuple[tuple[int, ...], ...] = ()
     assert planarisation_holds(ring[:4], _planar(ring[:4], none), [(0, 1, 2, 3)])
     assert not planarisation_holds(ring, _planar(ring, none), [(0, 1, 2, 3, 4)])
+
+
+def _unmoved_volume_m3(s: Surface) -> float:
+    """Volume of the wing as the genes shape it: the loft through the sections' own outlines,
+    before any strip merge moved a vertex (independent of the merge and of wing_polyhedron)."""
+    rings = [
+        section_outline(sec, s, int(number("airfoil_points_per_side")))[:-1] for sec in s.sections
+    ]
+    return volume_m3(_polyhedron(np.vstack(rings), len(rings[0]), len(rings)))
+
+
+def test_a_coarse_wing_keeps_its_volume_within_the_ratio_the_gate_allows() -> None:
+    limit, seen = number("coarse_volume_ratio_max"), 0
+    for i in range(7, 800, 11):
+        if FACETS[i % 7] == "smooth" or COARSE[(i // 7) % 4] == "off":
+            continue
+        try:
+            design = _design(i)
+        except (FacetError, DecodeError):  # a genome that does not decode has no wing
+            continue
+        for s in (s for s in design.surfaces if s.airfoil_facets and len(s.sections) > 1):
+            ratio = volume_m3(wing_polyhedron(s)) / _unmoved_volume_m3(s)
+            assert 1.0 / limit <= ratio <= limit, (i, s.name, ratio)
+            seen += 1
+    assert seen >= 20
