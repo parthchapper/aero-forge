@@ -517,3 +517,27 @@ candidate repeats the decode many times, so it is very slow, not a loop in the p
 
 ## run 2026-11-27 08:10:36: pytest -q -x --tb=short tests/test_descriptor_v2.py -m not slow -p no:cacheprovider
 - 08:10:49 PASSED tests/test_descriptor_v2.py::test_every_number_is_named_and_documented_in_the_spec (0.0 s)
+- 08:14:07 PASSED tests/test_descriptor_v2.py::test_v1_descriptor_is_kept_with_its_sixteen_numbers[smoke] (0.0 s)
+- 08:14:07 PASSED tests/test_descriptor_v2.py::test_top_and_front_shares_match_the_area_module[smoke] (0.7 s)
+- 08:14:38 PASSED tests/test_descriptor_v2.py::test_designs_that_differ_only_in_body_length_get_different_descriptors (0.0 s)
+- 08:14:50 PASSED tests/test_descriptor_v2.py::test_a_flat_panel_body_and_a_smooth_one_under_the_same_wings_differ (12.0 s)
+- 08:14:51 PASSED tests/test_descriptor_v2.py::test_the_body_changes_the_descriptor_only_through_the_body_numbers (0.1 s)
+- 08:14:51 PASSED tests/test_descriptor_v2.py::test_a_body_that_leaves_the_wing_has_no_blend (0.0 s)
+- 08:15:31 PASSED tests/test_descriptor_v2.py::test_the_side_shadow_of_a_flat_panel_body_matches_a_triangle_raster (39.8 s)
+- 08:15:31 PASSED tests/test_descriptor_v2.py::test_the_side_shadow_of_a_smooth_body_matches_its_section_integral (0.0 s)
+- 08:15:31 PASSED tests/test_descriptor_v2.py::test_a_design_over_the_bomb_cap_is_never_a_finalist (0.0 s)
+- 08:15:31 PASSED tests/test_descriptor_v2.py::test_contributions_name_the_three_numbers_that_set_the_distance (0.0 s)
+- 08:15:31 PASSED tests/test_descriptor_v2.py::test_the_report_lists_the_contributors (0.0 s)
+- 08:15:32 FAILED tests/test_descriptor_v2.py::test_history_keeps_only_rows_of_the_current_descriptor (0.0 s)
+
+## run 2026-11-27 08:15:51: pytest -q -x --tb=short tests/test_descriptor_v2.py -k history or contributions or report or bomb -p no:cacheprovider
+- 08:15:58 PASSED tests/test_descriptor_v2.py::test_a_design_over_the_bomb_cap_is_never_a_finalist (0.0 s)
+- 08:15:58 PASSED tests/test_descriptor_v2.py::test_contributions_name_the_three_numbers_that_set_the_distance (0.0 s)
+- 08:15:58 PASSED tests/test_descriptor_v2.py::test_the_report_lists_the_contributors (0.0 s)
+- 08:15:59 FAILED tests/test_descriptor_v2.py::test_history_keeps_only_rows_of_the_current_descriptor (0.0 s)
+
+## run 2026-11-27 08:16:14: pytest -q --tb=short tests/test_descriptor_v2.py -k history or contributions or report or bomb -p no:cacheprovider
+- 08:16:21 PASSED tests/test_descriptor_v2.py::test_a_design_over_the_bomb_cap_is_never_a_finalist (0.0 s)
+- 08:16:21 PASSED tests/test_descriptor_v2.py::test_contributions_name_the_three_numbers_that_set_the_distance (0.0 s)
+- 08:16:21 PASSED tests/test_descriptor_v2.py::test_the_report_lists_the_contributors (0.0 s)
+- 08:16:21 PASSED tests/test_descriptor_v2.py::test_history_keeps_only_rows_of_the_current_descriptor (0.0 s)

@@ -84,10 +84,11 @@ def read_history(path: Path) -> np.ndarray:
 
 
 def append_history(path: Path, entry: dict[str, object]) -> None:
-    """Append one delivered design (id, seed, brief hash, desc) to history.jsonl."""
+    """Append one delivered design (id, seed, brief hash, desc) to history.jsonl, tagged with the
+    descriptor version."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8", newline="\n") as f:
-        f.write(json.dumps(entry, sort_keys=True) + "\n")
+        f.write(json.dumps({**entry, "desc_version": DESC_VERSION}, sort_keys=True) + "\n")
 
 
 def brief_hash(b: Brief) -> str:
