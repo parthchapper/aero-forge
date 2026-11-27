@@ -541,3 +541,5 @@ candidate repeats the decode many times, so it is very slow, not a loop in the p
 - 08:16:21 PASSED tests/test_descriptor_v2.py::test_contributions_name_the_three_numbers_that_set_the_distance (0.0 s)
 - 08:16:21 PASSED tests/test_descriptor_v2.py::test_the_report_lists_the_contributors (0.0 s)
 - 08:16:21 PASSED tests/test_descriptor_v2.py::test_history_keeps_only_rows_of_the_current_descriptor (0.0 s)
+
+## run 2026-11-27 08:23:07: pytest -q --tb=short -m not slow -p no:cacheprovider
