@@ -185,10 +185,18 @@ CAD build succeeds for ≥ 98 % of random genomes; a failure raises a typed erro
 - Every assumed constant lives in constants.yaml with unit and source note, and is listed in CHANGELOG "Assumed constants".
 
 ## 9 Novelty and search
-- `desc(Design)` → R^D in [0,1], from geometry only. 0.3: R^16 (lifting-area histograms along x (5), y (4), z (3); vertical-area fraction; surface count; joined-tip count; body count). (U4) R^21: adds body_top_share, frontal area ÷ S, top area ÷ S, centre body length ÷ √S, facet density. Invariant to slot order and encoding.
+- `desc(Design)` → R^D in [0,1], from geometry only, invariant to slot order and encoding. 0.3 (kept as `descriptor_v1.desc_v1` for the baseline comparison): R^16 = lifting-area histograms along x (5), y (4), z (3); vertical-area fraction; surface count; joined-tip count; body count. (U4) **v2, R^20**, in this order (`descriptor.NAMES`):
+  1. 0-10 lifting surfaces: lift share along x (4 bins about the lifting-area centroid, in √S), along |y|/semi-span (3), along z (2); vertical-area fraction; surface count ÷ 4. The v1 terms on coarser bins (and without the joined-tip and body counts, which pods and the body terms now cover) to fit 20 numbers.
+  2. 11 `body_top_share`, 12 `body_side_share`, 13 `body_front_share`: body shadow ÷ total shadow in that view (areas.py scan lines; pods count as body).
+  3. 14 `body_wing_blend`: part of the wing shadow seen from above that lies inside the body shadow (overlap ÷ wing shadow).
+  4. 15 `body_fineness`: centre body (the longest) length ÷ the diameter of the circle with the area of its widest section's bounding box, ÷ `desc2_fineness_max`.
+  5. 16 `body_panels`: sheets of a flat-panel centre body ÷ `desc2_panels_max`; 17 `body_crease_sharpness`: mean crease angle between its neighbouring sheets ÷ `desc2_crease_ref_deg`; 18 `body_face_directions`: 3° clusters of its sheet normals ÷ `desc2_directions_max`. All 0 for a smooth or absent body.
+  6. 19 `pods`: pod instances ÷ `desc2_pods_max`.
+  Every number is clipped to [0, 1]; the constants are `desc2_*` rows of constants.yaml (assumed ones are marked).
+- Bomb cap (U4): a design whose `body_top_share` is above `bomb_cap` (0.45) is never a finalist, so a big body with stub wings cannot win on novelty.
 - `novelty(D)` = min Euclidean distance from desc(D) to reference ∪ history.
 - Reference set: `data/reference.yaml`, 44 known configurations; each entry = name + sparse gene overrides (`base: <name>` allowed), decoded by `genome.decode` with the full ranges.
-- History: `~/.aero-forge/history.jsonl` (id, seed, brief hash, desc). Appended on delivery only. A new file starts at U4 (descriptor size changes); the 0.3 file is archived.
+- History: `~/.aero-forge/history.jsonl` (id, seed, brief hash, desc). Appended on delivery only. From U4 each row carries `desc_version` 2; rows without it (0.3, 16 numbers) are not read (logged). Never rewritten.
 - `d_min` = median nearest-neighbour distance inside the reference set.
 - Search (pyribs CVT archive): solution = genome; objective = style score if passable, else −violation; measures = desc. Default budget 5,000 tier-1 evaluations, spawn worker processes.
 - Randomness r sets the novelty band [bottom, top] × d_min (`knob_*` rows with r0/r1). (U6) `alienness` moves several knobs together by linear interpolation (`a0`/`a1`): a floor on r, `exclude_layouts`, `min_conventional_distance` (× d_min), `bomb_cap`, `critic_strangeness_weight`, `novelty_style_weight`. Anything the user sets wins (precedence, §4).
@@ -209,7 +217,7 @@ CAD build succeeds for ≥ 98 % of random genomes; a failure raises a typed erro
 
 ## 11 Outputs — `designs/<id>/`
 `brief.yaml requirements.json design.yaml genome.json finalists.json check.json critique.json views/{iso,top,front,side}.png parts/*.step assembly.step assembly.glb report.md viewer.html`, and from U2 `panels/panels.csv` (flat-panel bodies and, U3, faceted wings; one row per physical sheet, neighbouring faces in one plane merged, so at most N rows for N panels: id, part, area, edge lengths, bevel angle to each neighbour) and `panels/panels.svg` (every sheet laid flat, numbered, dimensioned, paginated to the stock sheet size in `constants.yaml`; a sheet larger than the stock gets a page of its own, labelled oversize).
-- `report.md`: brief vs achieved per check (PASS/FAIL + margin); (U3) a measured table of the top-view outline edges with their angles, gaps to the angle set and the angles shared by different parts; novelty (nearest reference by name + distance, nearest past design); seed and r (and alienness); shadow areas; assumed constants; fidelity statement; (U5) Controls section (value and source of each); (U6) Funnel section.
+- `report.md`: brief vs achieved per check (PASS/FAIL + margin); (U3) a measured table of the top-view outline edges with their angles, gaps to the angle set and the angles shared by different parts; novelty (nearest reference by name + distance, nearest past design, and (U4) the three descriptor numbers that contribute most to the distance from the nearest known design); seed and r (and alienness); shadow areas; assumed constants; fidelity statement; (U5) Controls section (value and source of each); (U6) Funnel section.
 - `viewer.html`: self-contained; three.js + GLTFLoader + OrbitControls via importmap from cdn.jsdelivr.net; GLB as base64; click a part → name + Design fields; opens from file://.
 
 ## 12 CLI

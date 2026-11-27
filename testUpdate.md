@@ -514,3 +514,6 @@ candidate repeats the decode many times, so it is very slow, not a loop in the p
 
 ## run 2026-11-27 07:39:30: pytest -q --tb=short tests/test_planar_gate_u3.py -k ratio -p no:cacheprovider
 - 07:40:45 PASSED tests/test_planar_gate_u3.py::test_a_coarse_wing_keeps_its_volume_within_the_ratio_the_gate_allows (71.4 s)
+
+## run 2026-11-27 08:10:36: pytest -q -x --tb=short tests/test_descriptor_v2.py -m not slow -p no:cacheprovider
+- 08:10:49 PASSED tests/test_descriptor_v2.py::test_every_number_is_named_and_documented_in_the_spec (0.0 s)

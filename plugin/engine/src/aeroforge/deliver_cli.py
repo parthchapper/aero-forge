@@ -15,7 +15,7 @@ import numpy as np
 from aeroforge.candidate import decoded_desc
 from aeroforge.checks import CheckReport
 from aeroforge.constants import number
-from aeroforge.descriptor import median_nearest
+from aeroforge.descriptor import contributions, median_nearest
 from aeroforge.geom import GeometryError, build_parts, exact_volumes_m3
 from aeroforge.hardpoints import containment_failures, hardpoints
 from aeroforge.internals import missing
@@ -40,6 +40,7 @@ from aeroforge.search_cli import (
     VERIFIED_FILE,
     append_history,
     brief_hash,
+    history_rows,
     load_folder,
     payload_randomness,
     read_history,
@@ -214,11 +215,8 @@ def _glb_path(folder: Path) -> Path:
 
 
 def _history_ids(path: Path) -> list[str]:
-    """Ids of history.jsonl rows, in the order read_history returns their descs."""
-    if not path.is_file():
-        return []
-    lines = path.read_text(encoding="utf-8").splitlines()
-    return [str(json.loads(line).get("id")) for line in lines if line]
+    """Ids of the history.jsonl rows read_history returns, in the same order."""
+    return [str(r.get("id")) for r in history_rows(path)]
 
 
 def plain_desc(genome: np.ndarray, folder: Path) -> np.ndarray:
@@ -242,12 +240,24 @@ def design_novelty(
     k = int(np.argmin(d_ref))
     ids = _history_ids(history)
     keep = [i for i, h in enumerate(ids) if h != own_id]
+    d_min, nearest = median_nearest(refs), refs[k]
     if not keep:
-        return Novelty(median_nearest(refs), names[k], float(d_ref[k]), None, None)
-    d_past = np.linalg.norm(read_history(history)[keep] - x, axis=1)
+        return Novelty(
+            d_min, names[k], float(d_ref[k]), None, None, tuple(contributions(x, nearest))
+        )
+    past_descs = read_history(history)[keep]
+    d_past = np.linalg.norm(past_descs - x, axis=1)
     j = int(np.argmin(d_past))
-    past = ids[keep[j]]
-    return Novelty(median_nearest(refs), names[k], float(d_ref[k]), past, float(d_past[j]))
+    if d_past[j] < d_ref[k]:
+        nearest = past_descs[j]
+    return Novelty(
+        d_min,
+        names[k],
+        float(d_ref[k]),
+        ids[keep[j]],
+        float(d_past[j]),
+        tuple(contributions(x, nearest)),
+    )
 
 
 def _deliver(folder: Path, b: Brief, seed: int, x: np.ndarray, history: Path) -> bool:

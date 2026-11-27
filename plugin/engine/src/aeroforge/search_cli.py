@@ -6,6 +6,7 @@ do not depend on scheduling (RULES determinism)."""
 import functools
 import hashlib
 import json
+import logging
 import multiprocessing
 import time
 from collections import Counter
@@ -27,7 +28,7 @@ from aeroforge.candidate import (
     verify_candidate,
 )
 from aeroforge.constants import knob, number
-from aeroforge.descriptor import DESC_SIZE, median_nearest, novelty
+from aeroforge.descriptor import DESC_SIZE, DESC_VERSION, median_nearest, novelty
 from aeroforge.genome import decode, random_genomes
 from aeroforge.models import Brief, Design, Requirements
 from aeroforge.physics_cli import (
@@ -39,8 +40,9 @@ from aeroforge.physics_cli import (
     write_design,
 )
 from aeroforge.reference import reference_genome, reference_names
-from aeroforge.search import BatchFn, Run, Scored, SearchResult, qualifies, search
+from aeroforge.search import BatchFn, Run, Scored, SearchResult, over_bomb_cap, qualifies, search
 
+log = logging.getLogger(__name__)
 FINALISTS_FILE, VERIFIED_FILE, HISTORY_FILE = "finalists.json", "verified.json", "history.jsonl"
 DEFAULT_HISTORY = Path.home() / ".aero-forge" / HISTORY_FILE
 _LIMITS: list[threadpool_limits] = []
@@ -63,11 +65,21 @@ def worker_pool(workers: int) -> Iterator[ProcessPoolExecutor]:
         yield pool
 
 
-def read_history(path: Path) -> np.ndarray:
-    """Descriptors in a history.jsonl (empty when the file does not exist)."""
+def history_rows(path: Path) -> list[dict[str, object]]:
+    """The rows of a history.jsonl that carry the current descriptor (U4: rows of the 0.3
+    descriptor are skipped, with a warning; the file is never rewritten). Empty without the file."""
     if not path.is_file():
-        return np.zeros((0, DESC_SIZE))
+        return []
     rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
+    kept = [r for r in rows if r.get("desc_version") == DESC_VERSION]
+    if len(kept) < len(rows):
+        log.warning("%s: %d rows of an older descriptor skipped", path, len(rows) - len(kept))
+    return kept
+
+
+def read_history(path: Path) -> np.ndarray:
+    """Descriptors of the current version in a history.jsonl (empty when there are none)."""
+    rows = history_rows(path)
     return np.array([r["desc"] for r in rows]).reshape(-1, DESC_SIZE)
 
 
@@ -191,6 +203,7 @@ def funnel(result: SearchResult) -> dict[str, object]:
         "failed": sum(s.candidate.report is None for s in ev),
         "passable": len(passable),
         "passable_styled": len(styled),
+        "over_bomb_cap": sum(over_bomb_cap(s.candidate) for s in styled),
         "novel": sum(s.novelty >= result.d_min for s in styled),
         "qualifying": sum(
             qualifies(s, result.d_min, result.s_min, result.randomness) for s in styled
