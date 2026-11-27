@@ -6,7 +6,7 @@ from itertools import pairwise
 import numpy as np
 import pytest
 
-from aeroforge.airfoil import naca_outline
+from aeroforge.airfoil import wing_outline
 from aeroforge.constants import constant, number
 from aeroforge.genome import decode
 from aeroforge.models import Body, Box, Design, Requirements, Section, Surface
@@ -37,8 +37,16 @@ def _outline(sec: Section, xy: np.ndarray) -> np.ndarray:
     return np.asarray(sec.le_m) + sec.chord_m * (xy[:, :1] * chord_dir + xy[:, 1:] * thick_dir)
 
 
+def _dense(xy: np.ndarray) -> np.ndarray:
+    """A polygon's edges cut into AIRFOIL_POINTS / 2 parts each (a polygon's long edges would hide
+    a disc crossing them); a smooth outline is dense already."""
+    t = np.linspace(0.0, 1.0, AIRFOIL_POINTS // 2, endpoint=False)[None, :, None]
+    return ((1 - t) * xy[:-1, None, :] + t * xy[1:, None, :]).reshape(-1, 2)
+
+
 def _outlines(s: Surface) -> list[np.ndarray]:
-    xy = naca_outline(s.camber_frac, s.camber_loc_frac, s.tc, AIRFOIL_POINTS)
+    xy = wing_outline(s.camber_frac, s.camber_loc_frac, s.tc, AIRFOIL_POINTS, s.airfoil_facets)
+    xy = _dense(xy) if s.airfoil_facets else xy
     return [_outline(sec, xy) for sec in s.sections]
 
 
@@ -101,11 +109,20 @@ def _structure_points(d: Design, x_window_m: tuple[float, float]) -> np.ndarray:
     return np.vstack([q for p, m in parts for q in ((p, p * MIRROR) if m else (p,))])
 
 
+def _body_low_z(b: Body) -> float:
+    """Lowest point of a body: the smooth rule (widest station) or, for a flat-panel body, its
+    polyhedron when that goes deeper (a coarse body went 8 mm below the rule, U3 audit)."""
+    rule = b.nose_m[2] - b.half_height_m
+    if b.facets is None:
+        return rule
+    return min(rule, float(np.asarray(b.facets.vertices_m)[:, 2].min()))
+
+
 def _lowest_z(d: Design) -> float:
     """Lowest structure point: a ruled loft is linear between outlines, so its extremes lie on
     the section outlines; a body's lowest ring point is at its widest station."""
     z_surfaces = min(float(o[:, 2].min()) for s in d.surfaces for o in _outlines(s))
-    z_bodies = [b.nose_m[2] - b.half_height_m for b in d.bodies]
+    z_bodies = [_body_low_z(b) for b in d.bodies]
     return min([z_surfaces, *z_bodies])
 
 
@@ -193,7 +210,7 @@ def _inside_panel_brute(a: Section, b: Section, xy: np.ndarray, pts: np.ndarray)
 
 
 def _inside_wing(s: Surface, pts: np.ndarray) -> np.ndarray:
-    xy = naca_outline(s.camber_frac, s.camber_loc_frac, s.tc, 40)
+    xy = wing_outline(s.camber_frac, s.camber_loc_frac, s.tc, 40, s.airfoil_facets)
     out = np.zeros(len(pts), dtype=bool)
     for a, b in pairwise(s.sections):
         # A loft point lies between its two outlines, so its y is within their y range.

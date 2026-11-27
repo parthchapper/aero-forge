@@ -2,18 +2,26 @@
 
 A failure becomes a result with a reason; it never raises into the search loop (RULES)."""
 
+import faulthandler
+import sys
+import threading
+from collections.abc import Callable
 from dataclasses import dataclass
+from typing import TypeVar
 
 import numpy as np
 
 from aeroforge.aero import AeroError
 from aeroforge.checks import CheckError, CheckReport, evaluate
-from aeroforge.constants import constant
+from aeroforge.constants import constant, number
 from aeroforge.descriptor import DescriptorError, desc
+from aeroforge.edges import soft_style_bonus
 from aeroforge.finish import LayoutError
 from aeroforge.genome import DecodeError, decode
 from aeroforge.models import Adjust, Brief, Design, Requirements
 from aeroforge.style import features, packaged_model, score
+
+_T = TypeVar("_T")
 
 CANDIDATE_ERRORS = (
     AeroError,
@@ -86,17 +94,66 @@ def _checked(
         add_fin=report.added_fin,
         incidence_deg=report.incidence_deg,
     )
-    style = score(features(design), packaged_model())
+    style = min(1.0, score(features(design), packaged_model()) + soft_style_bonus(design))
     return Candidate(g, x, style, report, adjust, None), design
 
 
+def run_limited(work: Callable[[], _T], limit_s: float, on_timeout: Callable[[], _T]) -> _T:
+    """work() in a daemon thread; on_timeout() when it has not finished after limit_s seconds.
+    The stuck thread cannot be killed: it is left running (the worker's other tasks go on, at
+    a lower speed) and its stack goes to stderr."""
+    box: list[tuple[bool, _T | BaseException]] = []
+
+    def target() -> None:
+        try:
+            box.append((True, work()))
+        except BaseException as exc:  # handed to the caller's thread
+            box.append((False, exc))
+
+    thread = threading.Thread(target=target, daemon=True)
+    thread.start()
+    thread.join(limit_s)
+    if not box:
+        faulthandler.dump_traceback(file=sys.stderr, all_threads=True)
+        return on_timeout()
+    ok, value = box[0]
+    if not ok:
+        assert isinstance(value, BaseException)
+        raise value
+    return value  # type: ignore[return-value]
+
+
+def _timed_out(genome: np.ndarray) -> Candidate:
+    """The candidate of a genome that took over candidate_timeout_s (dropped, reason says so)."""
+    limit = number("candidate_timeout_s")
+    g = tuple(float(v) for v in genome)
+    sys.stderr.write(f"candidate timed out after {limit:g} s, genome {list(g)}\n")
+    return Candidate(g, None, 0.0, None, None, f"timed out after {limit:g} s")
+
+
 def evaluate_candidate(genome: np.ndarray, brief: Brief, req: Requirements, tier: int) -> Candidate:
-    """Descriptor of the decoded genome, then the prepared design's checks and style score."""
-    return _checked(genome, brief, req, tier)[0]
+    """Descriptor of the decoded genome, then the prepared design's checks and style score
+    (a candidate over candidate_timeout_s is dropped with a reason)."""
+    return run_limited(
+        lambda: _checked(genome, brief, req, tier)[0],
+        number("candidate_timeout_s"),
+        lambda: _timed_out(genome),
+    )
+
+
+def pool_desc(genome: np.ndarray, req: Requirements) -> tuple[float, ...] | None:
+    """decoded_desc under candidate_timeout_s (None when it does not decode or takes too long)."""
+    return run_limited(
+        lambda: decoded_desc(genome, req), number("candidate_timeout_s"), lambda: None
+    )
 
 
 def verify_candidate(
     genome: np.ndarray, brief: Brief, req: Requirements
 ) -> tuple[Candidate, Design | None]:
-    """Tier-2 candidate and its delivered design (None when evaluation failed)."""
-    return _checked(genome, brief, req, 2)
+    """Tier-2 candidate and its delivered design (None when evaluation failed or timed out)."""
+    return run_limited(
+        lambda: _checked(genome, brief, req, 2),
+        number("candidate_timeout_s"),
+        lambda: (_timed_out(genome), None),
+    )

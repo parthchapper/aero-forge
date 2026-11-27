@@ -6,22 +6,21 @@ import numpy as np
 import pytest
 import trimesh
 
-from aeroforge.airfoil import naca_outline
 from aeroforge.constants import number
 from aeroforge.facet_query import volume_m3
+from aeroforge.facet_wing import wing_polyhedron
 from aeroforge.genome import decode
 from aeroforge.geom import GeometryError, build_parts
 from aeroforge.mesh import PartMesh, export_mesh, glb_bytes, tessellate, write_stls
 from aeroforge.models import Body, Design, Requirements, Surface, instance_names
 from aeroforge.render import render_png
-from aeroforge.shapes import body_radius_frac, section_normal
+from aeroforge.shapes import body_radius_frac, section_outline
 
 CAD_SAMPLE = 100
 CAD_SUCCESS_FLOOR = 0.98
 VOLUME_DESIGNS = 8
 # Spline-vs-polygon outlines, the smooth body loft and tessellation chords stay well inside this.
 VOLUME_REL_TOL = 0.02
-GAUSS_POINTS = 3  # the loft volume integrand is cubic in the spanwise fraction
 RADIUS_SAMPLES = 20001
 
 
@@ -92,35 +91,48 @@ def test_written_stls_are_watertight(meshes: list[PartMesh], tmp_path: Path) -> 
     assert all(trimesh.load(p).is_watertight for p in tmp_path.glob("*.stl"))
 
 
-def _cross_yz(u: np.ndarray, v: np.ndarray) -> float:
-    return float(u[1] * v[2] - u[2] * v[1])
+GAUSS_NODES = (0.5 - 0.5 / math.sqrt(3.0), 0.5 + 0.5 / math.sqrt(3.0))  # exact for the integrand
 
 
-def _outline_moments(s: Surface) -> tuple[float, float]:
-    """(area, first moment about the chord line) of the unit-chord outline polygon."""
-    xy = naca_outline(
-        s.camber_frac, s.camber_loc_frac, s.tc, int(number("airfoil_points_per_side"))
+def _ruled_side_volume(a: np.ndarray, b: np.ndarray) -> float:
+    """Divergence-theorem volume term (1/3 integral of P . (P_f x P_u)) of the ruled strip between
+    closed outlines a and b: every point pair (a_i, b_i) is joined by a straight line, so each
+    polygon edge sweeps a bilinear patch, and the integrand is biquadratic (2-point Gauss exact)."""
+    a1, b1 = np.roll(a, -1, axis=0), np.roll(b, -1, axis=0)
+    total = 0.0
+    for f in GAUSS_NODES:
+        for u in GAUSS_NODES:
+            p = (1 - f) * ((1 - u) * a + u * a1) + f * ((1 - u) * b + u * b1)
+            p_f = (1 - u) * (b - a) + u * (b1 - a1)
+            p_u = (1 - f) * (a1 - a) + f * (b1 - b)
+            total += float((p * np.cross(p_f, p_u)).sum()) / 12.0
+    return total
+
+
+def _cap_volume(outline: np.ndarray) -> float:
+    """Volume term of a planar end cap: signed tetrahedra of a fan from its first point."""
+    p0 = outline[0]
+    return (
+        sum(
+            float(np.dot(outline[i], np.cross(outline[i + 1], p0)))
+            for i in range(1, len(outline) - 1)
+        )
+        / 6.0
     )
-    x, y = xy[:, 0], xy[:, 1]
-    x1, y1 = np.roll(x, -1), np.roll(y, -1)
-    cross = x * y1 - x1 * y
-    return float(cross.sum() / 2), float(((y + y1) * cross).sum() / 6)
 
 
 def _surface_volume(s: Surface) -> float:
-    """Exact volume of the ruled loft L(f) + xc C(f) x + yc M(f): |J| = C |(dL + yc dM) x M|."""
-    area, moment = _outline_moments(s)
-    nodes, weights = np.polynomial.legendre.leggauss(GAUSS_POINTS)
-    total = 0.0
-    for a, b in pairwise(s.sections):
-        dl = np.subtract(b.le_m, a.le_m)
-        m0 = a.chord_m * section_normal(a.cant_deg)
-        dm = b.chord_m * section_normal(b.cant_deg) - m0
-        for node, weight in zip((nodes + 1) / 2, weights / 2, strict=True):
-            m = m0 + node * dm
-            chord = a.chord_m + node * (b.chord_m - a.chord_m)
-            total += weight * chord * (_cross_yz(dl, m) * area + _cross_yz(dm, m) * moment)
-    return abs(total)
+    """Exact volume of the ruled loft through the sections' own outlines (twist, cant and chord
+    included, as the decoder specifies them): ruled strips plus the two planar end caps. The
+    outline of a smooth surface is the NACA polygon the CAD spline passes through. A flat-panel
+    wing's volume is that of its polyhedron (the planarised strips move its vertices off the
+    section outlines, up to a few per cent on coarse wings; the audit checks CAD = polyhedron)."""
+    if s.airfoil_facets:
+        return volume_m3(wing_polyhedron(s))
+    n_af = int(number("airfoil_points_per_side"))
+    rings = [section_outline(c, s, n_af) for c in s.sections]
+    side = sum(_ruled_side_volume(a, b) for a, b in pairwise(rings))
+    return abs(side + _cap_volume(rings[0]) - _cap_volume(rings[-1]))
 
 
 def _body_volume(b: Body) -> float:
@@ -134,15 +146,8 @@ def _body_volume(b: Body) -> float:
     return b.length_m * b.half_width_m * b.half_height_m * shape * radius_sq
 
 
-WING_VOLUME = pytest.mark.xfail(
-    strict=True,
-    reason="wing tessellation, pre-U2 (surface0_L meshes 3.15 % off its analytic volume, bar "
-    "2 %, same on main): investigate U3",
-)
-
-
 @pytest.mark.slow
-@pytest.mark.parametrize("kind", [pytest.param("surface", marks=WING_VOLUME), "body"])
+@pytest.mark.parametrize("kind", ["surface", "body"])
 def test_tessellated_volumes_match_the_analytic_shapes(decoded: list[Design], kind: str) -> None:
     for d in decoded[:VOLUME_DESIGNS]:
         meshes = {m.name: m for m in tessellate(build_parts(d))}

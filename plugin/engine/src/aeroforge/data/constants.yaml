@@ -226,6 +226,7 @@ knob_rank_novelty_weight: {r0: 0.2, r1: 1.0, unit: "-", source: "user, novelty p
 knob_critic_strangeness_weight: {r0: 1.0, r1: 3.0, unit: "-", source: "user, novelty plan step 7: visual critic weight on strangeness (read by step 12)"}
 search_winners: {value: 3, unit: count, source: "SPEC §9: first 3 passing tier 2 are built"}
 search_workers: {value: 16, unit: count, source: "worker processes (probe on this 22-thread host: 16 -> 4.4 /s, 22 -> 4.0 /s, 11 -> 3.9 /s)"}
+candidate_timeout_s: {value: 120.0, unit: s, source: "U3 audit ASSUMED: wall-clock limit of one candidate (decode, checks) in a search worker; a decode takes 1-10 s, a tier-2 check under 60 s; a candidate over the limit is dropped with a reason"}
 # step 5: internals (SPEC §10) and deliverables (SPEC §11)
 joiner_length_m: {value: 0.08, unit: m, source: "assumed spar joiner rod length (40 mm each side of the joint)"}
 hinge_marker_d_m: {value: 0.002, unit: m, source: "assumed hinge-line marker rod diameter (capped to hinge_fill_frac of the local thickness)"}
@@ -276,3 +277,40 @@ hatch_centre_tol_frac: {value: 0.25, unit: "-", source: "U2 assumed: a hatch who
 hatch_panel_floor_frac: {value: 0.02, unit: "-", source: "U2: smallest share of the bay footprint a hatch shrinks to when no roof panel holds a larger one (a sliver of panel at a tapering end); hatch_panel_min_frac is the share below which the hatch is called small"}
 hatch_panel_edge_margin_frac: {value: 1.0e-4, unit: "-", source: "U2: a hatch on a flat panel stops this share of its size short of the panel edge, so its corners are inside for every tolerance of the edge tests"}
 report_fidelity_faceted: {value: "A flat-panel body enters the aerodynamic model as an equivalent smooth section (same width, height and area at each station) with the exact area of its faces as friction area; the extra drag of its sharp chines and edges is not modelled.", unit: text, source: "U2: SPEC 8 fidelity statement for faceted bodies, added to the report when a body is flat-panel"}
+airfoil_facet_x_power: {value: 1.5, unit: "-", source: "U3 assumed (look, not physics): polygon vertex stations on a side are x/c = (i / k)^power, i = 0..k; crowds vertices toward the leading edge so the nose stays round-ish and the aft facets are long. Chosen on geometry (thickness kept, spar and box room) not on NeuralFoil, whose confidence collapses on polygons (CHANGELOG Decisions U3)"}
+facet_cd_per_turn_sq: {value: 2.0e-4, unit: "-", source: "U3 ASSUMED (Known issue): section profile-drag increment = this x sum over the polygon's corners (trailing edge excluded) of the squared turn angle [rad^2], on the surface's planform area. Sum = 6.9 at 3 facets .. 4.1 at 8 (airfoil.corner_turn_sq_sum, 9 NACA sections), so +0.0014 .. +0.0008 on a section CD of about 0.009 (+15 % .. +9 %). Reference: NeuralFoil on the polygon, confident cases only, gave a mean CD ratio of 1.04-1.14 at 4-5 facets (its Kulfan fit smooths the corners); the constant sits at the top of that and is not a measurement. NeuralFoil is not used on the polygon (CHANGELOG Decisions U3)"}
+report_fidelity_faceted_wing: {value: "A faceted wing enters the aerodynamic model as its smooth parent NACA section (lift, moment, stall and Reynolds effects are the parent's, so clmax and the stall speed are optimistic for a polygon) plus an assumed profile-drag increment per corner (constant facet_cd_per_turn_sq); NeuralFoil is not run on the polygon, which it smooths. Mass uses the parent section's wetted-area law.", unit: text, source: "U3: SPEC 8 fidelity statement for faceted wings, added to the report when a surface has polygon sections"}
+edge_fixed_angles_deg: {value: [0.0, 90.0], unit: deg, source: "U3: angles every aligned design may use besides the main wing's own sweep and its complement: 0 = a straight spanwise edge, 90 = an edge along x (tip chord, body side). Assumed (look, no radar claim)"}
+edge_min_length_m: {value: 0.01, unit: m, source: "U3 assumed: an outline edge shorter than this is not measured or snapped (tip rake slivers, seen-edge-on fins)"}
+edge_align_tol_deg: {value: 0.5, unit: deg, source: "plan U3 test: an edge is aligned when within this of an allowed angle"}
+edge_group_tol_deg: {value: 0.5, unit: deg, source: "U3: edges of different parts whose angles differ by at most this are reported as sharing one angle"}
+strict_spar_room_frac: {value: 0.8, unit: "-", source: "U3 assumed: share of the section thickness at tc_max usable by the spar when bounding the smallest chord strict alignment may leave"}
+strict_candidate_count: {value: 6, unit: count, source: "U3 assumed: allowed angles tried per edge (nearest first) when snapping a panel"}
+edge_soft_weight: {value: 0.15, unit: "-", source: "U3 assumed: added to the style score x the alignment score (0..1) of a design whose edge_alignment gene is soft, score capped at 1"}
+edge_soft_sigma_deg: {value: 5.0, unit: deg, source: "U3 assumed: an edge this far from every allowed angle counts as exp(-1) aligned in the soft score"}
+strict_widest_x_min_frac: {value: 0.12, unit: "-", source: "U3 assumed: widest station of a strictly aligned body no nearer the nose than this share of its length (genes reach 0.2)"}
+strict_widest_x_max_frac: {value: 0.8, unit: "-", source: "U3 assumed: widest station of a strictly aligned body no further back than this share (genes reach 0.7)"}
+strict_tail_end_max_frac: {value: 0.6, unit: "-", source: "U3 assumed: tail end size / max section of a strictly aligned body at most this (genes reach 0.5)"}
+edge_body_halvings: {value: 3, unit: count, source: "U3 assumed: steep body edge angles 90 - a / 2^k for k = 1..this (a = main wing sweep); bodies of fineness 4-10 have nose and tail edges at 75-88 degrees"}
+strict_body_snap_max: {value: 6, unit: count, source: "U3 assumed: re-snaps of a strictly aligned body's widest station and tail end after a sizing pass; some bodies creep (box sizing moves its length when the station moves) without settling, the 7th pass is not taken and the measured edge angles are reported"}
+# --- facet coarseness (U3b; every value ASSUMED, user-approved wording in SPEC section 6) ---
+coarse_level_low: {value: 0.35, unit: "-", source: "U3b ASSUMED: facet_coarseness gene label low"}
+coarse_level_mid: {value: 0.7, unit: "-", source: "U3b ASSUMED: facet_coarseness gene label mid (high = 1)"}
+coarse_min_crease_deg: {value: 15.0, unit: deg, source: "U3b ASSUMED (user: start at 15): smallest crease between adjacent sheets at coarseness 1, scaled by the coarseness"}
+coarse_move_frac: {value: 0.03, unit: "-", source: "U3b user decision: a crease merge may move vertices by at most this share of the part length (body: its length; wing: the section chord); a merge over it is skipped and noted"}
+coarse_wing_facets_loose: {value: 8, unit: count, source: "U3b ASSUMED: most flat segments per side of a wing section at coarseness 0"}
+coarse_wing_facets_tight: {value: 4, unit: count, source: "U3b ASSUMED: most flat segments per side of a wing section at coarseness 1 (user: wing 4-12 sheets per side over 1-3 strips)"}
+coarse_wing_side_panels_max: {value: 12, unit: count, source: "U3b user: wing sheets per side budget (measured and reported, not enforced past the facet limit)"}
+coarse_body_sides_loose: {value: 12, unit: count, source: "U3b ASSUMED: most corners of a faceted body section at coarseness 0"}
+coarse_body_sides_tight: {value: 8, unit: count, source: "U3b ASSUMED: most corners of a faceted body section at coarseness 1"}
+coarse_body_panels_max: {value: 30, unit: count, source: "U3b user: body sheet budget (12-30)"}
+coarse_directions_max: {value: 8, unit: count, source: "U3b user: face-normal directions per side (upper / lower) a coarse part should have; measured and reported"}
+coarse_cluster_deg: {value: 3.0, unit: deg, source: "U3b user: face normals within this angle are one direction"}
+coarse_twist_step_deg: {value: 2.0, unit: deg, source: "U3b ASSUMED: washout step size at coarseness 1 (a step is this x coarseness): the washout becomes whole steps between sections, one strip per step, so the other strips stay flat quads"}
+coarse_prior_off: {value: 0.10, unit: "-", source: "U3b ASSUMED (user: off 10 / low 15 / mid 25 / high 50): search prior weight of facet_coarseness off for a genome with a faceted part"}
+coarse_prior_low: {value: 0.15, unit: "-", source: "U3b ASSUMED search prior weight of facet_coarseness low"}
+coarse_prior_mid: {value: 0.25, unit: "-", source: "U3b ASSUMED search prior weight of facet_coarseness mid"}
+coarse_prior_high: {value: 0.50, unit: "-", source: "U3b ASSUMED search prior weight of facet_coarseness high"}
+planar_det_tol: {value: 1.0e-17, unit: m3, source: "U3b: planarity determinant (6 x tetra volume of a quad's corners) below which facet_planar.planarize calls a quad flat; the flat test of facet_wing then applies facet_geom_tol_m as before"}
+coarse_move_width_frac: {value: 0.15, unit: "-", source: "U3b ASSUMED safety cap: a crease merge on a body moves vertices by at most this share of the body's narrower half-axis (the user's 3 % of the length alone would let a slim pod's merge move a vertex over half its width)"}
+coarse_volume_ratio_max: {value: 2.0, unit: "-", source: "U3 audit ASSUMED: a strip merge is taken only when the wing keeps its volume within this factor either way; the minimum-norm planarisation flattened 1.5 % of coarse wings into one plane (volume 0, CAD invalid), the rest moved it between 0.31 and 1.62 of the unmoved wing"}

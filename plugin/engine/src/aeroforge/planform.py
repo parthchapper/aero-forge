@@ -6,6 +6,8 @@ from itertools import pairwise
 import numpy as np
 
 from aeroforge.airfoil import local_thickness_frac
+from aeroforge.align import snap_sections
+from aeroforge.coarse import stepped_levels
 from aeroforge.constants import constant, number
 from aeroforge.models import Family, Section, Spar, TipStyle, Vec3
 
@@ -36,6 +38,9 @@ class SurfaceGenes:
     area_share: float | None = None  # true area / S, overriding the weight (added fin)
     root_chord_scale: float = 1.0  # strake: inner-panel root chord x this, area kept
     twist_deg: float = 0.0  # linear washout from root to tip
+    airfoil_facets: int = 0  # flat segments per side of the section polygon (0 = smooth)
+    coarseness: float = 0.0  # U3b facet coarseness of a faceted surface (stepped washout)
+    align_angles_deg: tuple[float, ...] = ()  # strict alignment: allowed edge angles (() = free)
 
 
 @dataclass(frozen=True)
@@ -47,6 +52,7 @@ class Planform:
     aspect_ratio: float
     tip_style: TipStyle
     root_chord_m: float
+    note: str = ""  # strict alignment: what could not be snapped ('' when everything was)
 
 
 @dataclass(frozen=True)
@@ -86,14 +92,19 @@ def _direction(sweep_deg: float, cant_deg: float) -> np.ndarray:
     return np.array([np.tan(np.radians(sweep_deg)), np.cos(c), np.sin(c)])
 
 
-def _twisted(sections: list[Section], n_structural: int, twist_deg: float) -> list[Section]:
+def _twisted(
+    sections: list[Section], n_structural: int, twist_deg: float, steps: int = 0
+) -> list[Section]:
     """Sections with a linear washout over the structural span (arc length root to tip); the tip
-    extension holds the tip twist. Zero twist returns the sections untouched."""
+    extension holds the tip twist. steps > 0: the washout in that many whole steps (coarseness),
+    so a strip between two sections of one step is not twisted. Zero twist returns the sections."""
     if twist_deg == 0.0:
         return sections
     pts = np.array([s.le_m[1:] for s in sections[:n_structural]])
     arc = np.concatenate([[0.0], np.cumsum(np.hypot(*np.diff(pts, axis=0).T))])
     frac = np.concatenate([arc / arc[-1], np.ones(len(sections) - n_structural)])
+    if steps:
+        frac = np.round(frac * steps) / steps
     return [
         s.model_copy(update={"twist_deg": float(twist_deg * f)})
         for s, f in zip(sections, frac, strict=True)
@@ -175,8 +186,17 @@ def build_planform(
     if tip is not None:
         sections += _tip_sections(tip_section, tip, kappa * semi, d2)
     aspect = (2 * semi) ** 2 / (2 * half_area)
-    sections = _twisted(sections, n_structural, g.twist_deg)
-    return Planform(tuple(sections), n_structural, aspect, g.tip_style, c_root_section)
+    note = ""
+    if g.align_angles_deg and g.mirrored:
+        snap = snap_sections(tuple(sections), g.align_angles_deg, root_mid_m[0])
+        sections, note = list(snap.sections), snap.note
+        c_root_section = sections[0].chord_m
+    steps = stepped_levels(g.twist_deg, g.coarseness, n_structural - 1) if g.airfoil_facets else 0
+    sections = _twisted(sections, n_structural, g.twist_deg, steps)
+    if steps:
+        step_note = f"coarseness: washout {g.twist_deg:.1f} deg in {steps} step(s), not linear"
+        note = f"{note}; {step_note}" if note else step_note
+    return Planform(tuple(sections), n_structural, aspect, g.tip_style, c_root_section, note)
 
 
 def _tip_sections(tip: Section, shape: TipShape, ext_m: float, d2: np.ndarray) -> list[Section]:
@@ -253,7 +273,9 @@ def choose_spar(sections: tuple[Section, ...], g: SurfaceGenes, tc: float) -> Sp
     """Largest stock tube fitting local thickness minus two skins on every structural section."""
     frac = number("spar_chord_frac")
     n_af = int(number("airfoil_points_per_side"))
-    t_frac = local_thickness_frac(g.camber_frac, g.camber_loc_frac, tc, frac, n_af)
+    t_frac = local_thickness_frac(
+        g.camber_frac, g.camber_loc_frac, tc, frac, n_af, g.airfoil_facets
+    )
     room = t_frac * min(s.chord_m for s in sections) - 2 * number("spar_skin_thickness_m")
     tubes = constant("constants", "spar_tubes_m")
     if not isinstance(tubes, list):
@@ -304,4 +326,5 @@ def added_fin_spec(fam: Family, tc: float, index: int) -> SurfaceGenes:
         control_frac=0.0,
         join_target=None,
         area_share=number("added_fin_area_frac"),
+        airfoil_facets=fam.airfoil_facets,
     )

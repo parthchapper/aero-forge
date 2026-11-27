@@ -8,7 +8,7 @@ from typing import Literal
 
 import numpy as np
 
-from aeroforge.airfoil import naca_outline
+from aeroforge.airfoil import wing_outline
 from aeroforge.constants import number, numbers
 from aeroforge.models import Body, Design, Frozen, Recovery, Section, Surface, Vec3
 from aeroforge.shapes import (
@@ -67,8 +67,12 @@ def _unit(a: np.ndarray) -> np.ndarray:
 
 def outline(s: Surface) -> np.ndarray:
     """Unit-chord outline of the surface's airfoil (same for every section)."""
-    return naca_outline(
-        s.camber_frac, s.camber_loc_frac, s.tc, int(number("airfoil_points_per_side"))
+    return wing_outline(
+        s.camber_frac,
+        s.camber_loc_frac,
+        s.tc,
+        int(number("airfoil_points_per_side")),
+        s.airfoil_facets,
     )
 
 

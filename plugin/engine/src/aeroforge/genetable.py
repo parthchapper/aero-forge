@@ -5,6 +5,8 @@ from functools import cache
 
 import numpy as np
 
+from aeroforge.coarse import coarse_family, level
+from aeroforge.coarse_prior import weighted
 from aeroforge.constants import load_table, number
 from aeroforge.models import BodyShape, Family
 
@@ -131,10 +133,16 @@ def shape_of(v: Genes) -> BodyShape:
     )
 
 
+def facets_of(v: Genes) -> int:
+    """Flat segments per side of a wing section (0 = smooth) from the airfoil_facets gene."""
+    label = v.pick["airfoil_facets"]
+    return 0 if label == "smooth" else int(label)
+
+
 def family_of(v: Genes) -> Family:
     """Design-language values from the global genes."""
     airfoil = v.pick["fam_airfoil"]
-    return Family(
+    fam = Family(
         sweep_deg=v.num["fam_sweep_deg"],
         taper=v.num["fam_taper"],
         dihedral_deg=v.num["fam_dihedral_deg"],
@@ -151,4 +159,14 @@ def family_of(v: Genes) -> Family:
         box_layout=v.pick["box_layout"],  # type: ignore[arg-type]
         layout=v.pick["layout"],  # type: ignore[arg-type]
         shape=shape_of(v),
+        airfoil_facets=facets_of(v),
+        edge_alignment=v.pick["edge_alignment"],  # type: ignore[arg-type]
+        facet_coarseness=level(v.pick["facet_coarseness"]),
     )
+    return coarse_family(fam)
+
+
+def random_genomes(rng: np.random.Generator, n: int) -> np.ndarray:
+    """n uniform genomes, shape (n, D); a row with a faceted part draws facet_coarseness from the
+    prior (coarse_prior)."""
+    return weighted(rng.random((n, genome_length())), gene_table())

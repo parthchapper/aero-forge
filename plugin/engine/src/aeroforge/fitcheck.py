@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from aeroforge.airfoil import local_thickness_frac, naca_outline
+from aeroforge.airfoil import local_thickness_frac, wing_outline
 from aeroforge.constants import constant, number
 from aeroforge.layout import box_lattice
 from aeroforge.models import Box, Design, Propulsor, Requirements
@@ -16,8 +16,12 @@ def box_points_inside(d: Design, box: Box) -> np.ndarray:
         if b.name == box.host:
             return inside_body(b, pts)
     s = next(s for s in d.surfaces if s.name == box.host)
-    xy = naca_outline(
-        s.camber_frac, s.camber_loc_frac, s.tc, int(number("airfoil_points_per_side"))
+    xy = wing_outline(
+        s.camber_frac,
+        s.camber_loc_frac,
+        s.tc,
+        int(number("airfoil_points_per_side")),
+        s.airfoil_facets,
     )
     return inside_loft(s.sections[: s.n_structural], xy, pts, mirrored=s.mirrored)
 
@@ -34,7 +38,9 @@ def spar_margin(d: Design) -> float:
     skins = 2 * number("spar_skin_thickness_m")
     worst = np.inf
     for s in d.surfaces:
-        t = local_thickness_frac(s.camber_frac, s.camber_loc_frac, s.tc, s.spar.chord_frac, n_af)
+        t = local_thickness_frac(
+            s.camber_frac, s.camber_loc_frac, s.tc, s.spar.chord_frac, n_af, s.airfoil_facets
+        )
         room = min(t * c.chord_m for c in s.sections[: s.n_structural]) - skins
         worst = min(worst, (room - s.spar.od_m) / s.spar.od_m)
     return float(worst)
@@ -89,7 +95,7 @@ def shaft_margin(d: Design) -> float:
         inside = np.zeros(len(pts), dtype=bool)
         for s in d.surfaces:
             if s.name != p.host:
-                xy = naca_outline(s.camber_frac, s.camber_loc_frac, s.tc, n_af)
+                xy = wing_outline(s.camber_frac, s.camber_loc_frac, s.tc, n_af, s.airfoil_facets)
                 inside |= inside_loft(s.sections, xy, pts, mirrored=s.mirrored)
         hits, total = hits + int(inside.sum()), total + len(pts)
     return -hits / total if total else 0.0

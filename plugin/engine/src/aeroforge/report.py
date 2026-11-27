@@ -4,7 +4,9 @@ from dataclasses import dataclass
 
 from aeroforge.areas import Areas, areas
 from aeroforge.checks import CheckReport
+from aeroforge.coarse_metrics import coarse_rows
 from aeroforge.constants import constant, load_table
+from aeroforge.edge_report import edge_rows
 from aeroforge.fit_report import fit_rows
 from aeroforge.models import Brief, Design, Requirements
 
@@ -88,11 +90,22 @@ def area_rows(shadow: Areas) -> list[str]:
     ]
 
 
+def _coarse_section(design: Design) -> list[str]:
+    """Facet coarseness section, empty for a design with no faceted part."""
+    faceted = any(b.facets is not None for b in design.bodies) or any(
+        s.airfoil_facets for s in design.surfaces
+    )
+    return ["## Facet coarseness (measured)", *coarse_rows(design), ""] if faceted else []
+
+
 def _faceted_fidelity(design: Design) -> list[str]:
-    """The faceted-body sentence of the fidelity statement, when a body is flat-panel."""
+    """The faceted sentences of the fidelity statement: flat-panel body, polygon wing sections."""
+    out = []
     if any(b.facets is not None for b in design.bodies):
-        return [str(constant("constants", "report_fidelity_faceted"))]
-    return []
+        out.append(str(constant("constants", "report_fidelity_faceted")))
+    if any(s.airfoil_facets for s in design.surfaces):
+        out.append(str(constant("constants", "report_fidelity_faceted_wing")))
+    return out
 
 
 def decoder_note_rows(design: Design) -> list[str]:
@@ -137,6 +150,10 @@ def report_md(
         "## Fit of internals (motor plates, hatches, servo trays)",
         *fit_rows(design, req.recovery),
         "",
+        "## Outline edges seen from above (measured)",
+        *edge_rows(design),
+        "",
+        *_coarse_section(design),
         "## Shadow areas",
         *area_rows(areas(design)),
         "",

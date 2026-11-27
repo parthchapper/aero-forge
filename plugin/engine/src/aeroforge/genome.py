@@ -4,16 +4,15 @@ from dataclasses import dataclass, replace
 
 import numpy as np
 
-from aeroforge.assemble import (
-    Context,
-    Layout,
-    host_name,
-    solve_layout,
-    surface_area,
-)
+from aeroforge.align import strict_family, strict_notes
+from aeroforge.assemble import Context, Layout, host_name, solve_layout, surface_area
+from aeroforge.body_align import BodySnap, initial_shape, next_shape, uncoarsened
+from aeroforge.coarse_fallback import coarse_body_fails
 from aeroforge.constants import number
-from aeroforge.finish import finish_design
-from aeroforge.genetable import Genes, family_of, genome_length, surface_count, unpack
+from aeroforge.facet_ends import FacetError
+from aeroforge.finish import FIN_CAP_NOTE, finish_design
+from aeroforge.genetable import Genes, family_of, surface_count, unpack
+from aeroforge.genetable import random_genomes as random_genomes  # re-export
 from aeroforge.layout import boxes_in_wing
 from aeroforge.models import Adjust, Body, Design, Family, Requirements, Spar
 from aeroforge.planform import SurfaceGenes, added_fin_spec, fit_tc
@@ -43,6 +42,7 @@ class State:
     wing_boxes: bool
     flat_tail: bool
     rise_x_frac: float | None
+    body_shape: BodySnap | None  # strict alignment: the body's end shape so far
     body_min_length_m: float
     shift: Growth
     notes: tuple[str, ...]
@@ -59,14 +59,15 @@ def _initial_state(v: Genes, fam: Family, adjust: Adjust) -> State:
         active=active,
         tc=(fam.tc,) * (n + 1),
         s0_taper=fam.taper,
-        joins_off=frozenset(),
+        joins_off=frozenset(range(n)) if fam.edge_alignment == "strict" else frozenset(),
         rehosted=frozenset(),
         wing_boxes=fam.box_layout == "wing_root",
         flat_tail=False,
         rise_x_frac=None,
+        body_shape=initial_shape(fam),
         body_min_length_m=0.0,
         shift=Growth(0.0, 0.0, adjust.body_shift_m),
-        notes=(),
+        notes=(*strict_notes(v, fam), *fam.facet_notes),
     )
 
 
@@ -127,7 +128,7 @@ def _spec(v: Genes, fam: Family, state: State, i: int, targets: set[int]) -> Sur
         outer_sweep_deg=outer_sweep,
         outer_cant_deg=outer_cant,
         taper=state.s0_taper if i == 0 else fam.taper,
-        tip_style="square" if i in targets else fam.tip_style,
+        tip_style="square" if i in targets or fam.edge_angles_deg else fam.tip_style,
         camber_frac=0.0 if fin else fam.camber_frac,
         camber_loc_frac=fam.camber_loc_frac,
         tc=state.tc[i],
@@ -135,6 +136,9 @@ def _spec(v: Genes, fam: Family, state: State, i: int, targets: set[int]) -> Sur
         join_target=_join_target(v, fam, state, i),
         root_chord_scale=v.num[p + "root_chord_scale"],
         twist_deg=v.num[p + "twist_deg"] if mirrored else 0.0,  # a twisted centreline fin would toe
+        airfoil_facets=fam.airfoil_facets,
+        align_angles_deg=fam.edge_angles_deg,
+        coarseness=fam.facet_coarseness,
     )
 
 
@@ -321,11 +325,16 @@ def _attempt(
     v: Genes, fam: Family, req: Requirements, state: State, adjust: Adjust
 ) -> Design | State:
     """One decode pass: a finished design or the next repair state."""
+    if state.body_shape is not None:
+        fam = fam.model_copy(update={"shape": state.body_shape.shape})
     body, anchor, centre_fam = _centre(v, fam, req, state)
     # the end shape and the rise start are kept (a dropped upsweep stays a gene value, as before)
     fam = fam.model_copy(
         update={"shape": centre_fam.shape, "body_rise_x_frac": centre_fam.body_rise_x_frac}
     )
+    if body and state.body_shape and (better := next_shape(fam, body, state.body_shape)):
+        notes = (*state.notes, *better.notes)
+        return replace(state, body_shape=better, rise_x_frac=None, flat_tail=False, notes=notes)
     pattern = prop_pattern(v, state)
     half_w = body.half_width_m if body else 0.0
     pusher = v.pick["prop_direction"] == "pusher"
@@ -364,27 +373,28 @@ def _attempt(
     return finish_design(ctx, specs, lay, result, pusher, pattern, notes)
 
 
+def _give_up_coarse(fam: Family, state: State, why: str) -> State:
+    """The state with the genes' body (coarsening given up, noted) for the next pass."""
+    snap = uncoarsened(fam, state.body_shape, why)
+    return replace(state, body_shape=snap, notes=(*state.notes, *snap.notes))
+
+
 def decode(genome: np.ndarray, req: Requirements, adjust: Adjust = NO_ADJUST) -> Design:
     """Decode a genome (with balance adjustments) into a complete, invariant-satisfying Design."""
     v = unpack(genome)
-    fam = family_of(v)
+    fam = strict_family(v, family_of(v))
     state = _initial_state(v, fam, adjust)
     for _ in range(int(number("decode_max_passes"))):
-        outcome = _attempt(v, fam, req, state, adjust)
+        coarse = state.body_shape is not None and state.body_shape.shape.coarseness > 0.0
+        try:
+            outcome = _attempt(v, fam, req, state, adjust)
+        except FacetError as e:  # the coarse body cannot hold the design: the genes' body instead
+            if not coarse:
+                raise
+            outcome = _give_up_coarse(fam, state, str(e))
+        if isinstance(outcome, Design) and coarse and (why := coarse_body_fails(outcome, req)):
+            outcome = _give_up_coarse(fam, state, f"fit margins {why}")
         if isinstance(outcome, Design):
             return outcome
         state = outcome
     raise DecodeError("decode repair loop did not settle")
-
-
-FIN_CAP_NOTE = "fins capped"
-
-
-def fin_capped(d: Design) -> bool:
-    """The decoder shrank a fin to the fin area or height cap (step 2 round 2)."""
-    return any(n.startswith(FIN_CAP_NOTE) for n in d.notes)
-
-
-def random_genomes(rng: np.random.Generator, n: int) -> np.ndarray:
-    """n uniform genomes, shape (n, D)."""
-    return rng.random((n, genome_length()))

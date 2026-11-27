@@ -3,7 +3,10 @@
 import numpy as np
 
 from aeroforge.assemble import Context, Layout, host_name, surface_area
+from aeroforge.coarse_metrics import coarse_notes
 from aeroforge.constants import constant, number, numbers
+from aeroforge.edges import alignment_misses
+from aeroforge.facet_ends import FacetError
 from aeroforge.faceted_body import firewall_attach
 from aeroforge.layout import (
     boxes_in_body,
@@ -15,7 +18,7 @@ from aeroforge.models import ControlSurface, Design, Propulsor, Spar, Surface, V
 from aeroforge.planform import Planform, SurfaceGenes, joined_sweep_deg
 from aeroforge.pod_fit import prop_diameter
 from aeroforge.prop_end import PROP_COUNT
-from aeroforge.shapes import component_points, prop_points
+from aeroforge.shapes import component_points, inside_body, prop_points
 
 
 class LayoutError(RuntimeError):
@@ -62,6 +65,7 @@ def _surface_model(
         projected_area_m2=projected,
         control=control,
         spar=spar,
+        airfoil_facets=g.airfoil_facets,
     )
 
 
@@ -130,6 +134,10 @@ def finish_design(
         _surface_model(specs[i], lay.planforms[i], fits[i], ctx, lay) for i in sorted(specs)
     )
     bodies = tuple(b for b in (ctx.body, lay.pod) if b is not None)
+    notes = (
+        *notes,
+        *(f"surface{i}: {lay.planforms[i].note}" for i in sorted(specs) if lay.planforms[i].note),
+    )
     bare = Design(
         family=ctx.fam,
         lifting_area_m2=ctx.lifting_area_m2,
@@ -142,7 +150,15 @@ def finish_design(
     obstacles = np.vstack(list(component_points(bare, include_props=False).values()))
     props = _props(ctx, lay, pusher, pattern, obstacles)
     design = bare.model_copy(
-        update={"propulsors": props, "notes": (*notes, *_firewall_notes(bare, props))}
+        update={
+            "propulsors": props,
+            "notes": (
+                *notes,
+                *_firewall_notes(bare, props),
+                *miss_notes(bare),
+                *coarse_notes(bare),
+            ),
+        }
     )
     # Mirroring keeps x, so the obstacle cloud plus one instance per prop holds the nose-most point.
     ring = int(number("body_ring_points"))
@@ -150,7 +166,43 @@ def finish_design(
         float(obstacles[:, 0].min()),
         *(float(prop_points(p, ring)[:, 0].min()) for p in design.propulsors),
     )
-    return translate_x(design, -x_min)
+    out = translate_x(design, -x_min)
+    _roots_on_hosts(out)
+    return out
+
+
+ROOT_CHORD_POINTS = 11  # samples along a root chord tested against its host body
+
+
+def _roots_on_hosts(design: Design) -> None:
+    """FacetError when a coarse body (its vertices moved by merging creases, within the cap) no
+    longer holds the whole root chord of a surface it hosts: the decoder then gives the body's
+    coarsening up (genome.decode)."""
+    if design.family.shape.coarseness <= 0.0:
+        return
+    bodies = {b.name: b for b in design.bodies if b.facets is not None}
+    t = np.linspace(0.0, 1.0, ROOT_CHORD_POINTS)[:, None]
+    for s in design.surfaces:
+        if s.host in bodies:
+            root = s.sections[0]
+            pts = np.asarray(root.le_m) + t * np.array([root.chord_m, 0.0, 0.0])
+            if not inside_body(bodies[s.host], pts).all():
+                raise FacetError(f"a root chord of {s.name} left the coarser {s.host}")
+
+
+def miss_notes(design: Design) -> tuple[str, ...]:
+    """One note per part with outline edges off the strict angle set (measured on the finished
+    design, so nothing the snapping missed goes unreported)."""
+    if design.family.edge_alignment != "strict":
+        return ()
+    worst: dict[str, float] = {}
+    for e, gap in alignment_misses(design):
+        worst[e.part] = max(worst.get(e.part, 0.0), gap)
+    return tuple(
+        f"strict alignment: {part} has outline edges up to {gap:.1f} deg off the angle set "
+        "(no allowed angle fits its proportions)"
+        for part, gap in sorted(worst.items())
+    )
 
 
 def _firewall_notes(design: Design, props: tuple[Propulsor, ...]) -> tuple[str, ...]:
@@ -198,3 +250,11 @@ def translate_x(design: Design, dx_m: float) -> Design:
     return design.model_copy(
         update={"surfaces": surfaces, "bodies": bodies, "propulsors": props, "boxes": boxes}
     )
+
+
+FIN_CAP_NOTE = "fins capped"
+
+
+def fin_capped(d: Design) -> bool:
+    """The decoder shrank a fin to the fin area or height cap (step 2 round 2)."""
+    return any(n.startswith(FIN_CAP_NOTE) for n in d.notes)

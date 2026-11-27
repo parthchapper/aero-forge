@@ -3,6 +3,7 @@ mass / aero, the cut list's physical sheets, and containment of the internals by
 
 import numpy as np
 import pytest
+from conftest import u2_random_genomes
 from test_facets import SEED, random_shape
 
 import aeroforge.facet_query as q
@@ -18,7 +19,7 @@ from aeroforge.facet_metrics import (
 )
 from aeroforge.facet_pieces import pieces
 from aeroforge.genetable import gene_table, genome_length, pin_choice
-from aeroforge.genome import decode, random_genomes
+from aeroforge.genome import decode
 from aeroforge.geom import faceted_body_solid, prop_solid
 from aeroforge.hardpoints import containment_failures, hardpoints
 from aeroforge.internals import Internal
@@ -88,9 +89,8 @@ def _upswept_design(req: Requirements, upsweep_deg: float) -> tuple[Design, Body
     """A decoded flat-panel design whose centre body keeps the asked tail upsweep (the decoder
     drops it when a root chord would sit on the rising tail)."""
     names = [g.name for g in gene_table()]
-    rng = np.random.default_rng(SEED)
-    for _ in range(60):
-        pinned = pin_choice(random_genomes(rng, 1), "body_style", "faceted")
+    for row in u2_random_genomes(SEED, 60):
+        pinned = pin_choice(row[None, :], "body_style", "faceted")
         genome = pin_choice(pinned, "body_on", "on")[0]
         genome[names.index("body_tail_upsweep_deg")] = upsweep_deg / 15.0
         design = decode(genome, req)
@@ -264,7 +264,7 @@ def test_the_pusher_end_of_a_faceted_body_has_the_radius_of_its_end_section() ->
 def _faceted_pusher_props(n: int) -> list[tuple[Design, object, Body]]:
     """(design, propulsor, host) of every pusher on a flat-panel host among n seeded genomes."""
     req = brief_requirements("stub")
-    gs = pin_choice(random_genomes(np.random.default_rng(2024), n), "body_style", "faceted")
+    gs = pin_choice(u2_random_genomes(2024, n), "body_style", "faceted")
     out = []
     for g in gs:
         d = decode(g, req)
@@ -336,7 +336,7 @@ def test_a_firewall_plate_that_cannot_reach_half_its_radius_is_a_misfit() -> Non
 
 def test_every_contained_hatch_is_a_usable_one_centred_over_its_bay() -> None:
     req = brief_requirements("stub")
-    gs = pin_choice(random_genomes(np.random.default_rng(31), 80), "body_style", "faceted")
+    gs = pin_choice(u2_random_genomes(31, 80), "body_style", "faceted")
     contained = tiny = 0
     for g in gs:
         d = decode(g, req)
@@ -361,7 +361,7 @@ def test_every_contained_hatch_is_a_usable_one_centred_over_its_bay() -> None:
 def _pinned(
     brief: str, style: str, n: int, seed: int = PINNED_SEED
 ) -> tuple[Requirements, np.ndarray]:
-    gs = pin_choice(random_genomes(np.random.default_rng(seed), n), "body_style", style)
+    gs = pin_choice(u2_random_genomes(seed, n), "body_style", style)
     return brief_requirements(brief), gs
 
 
@@ -433,15 +433,20 @@ def test_internals_misfits_stay_under_one_percent_over_four_hundred_genomes(
     assert _misfits(brief, style, n) <= MISFIT_BAR * n
 
 
-def test_genome_length_is_unchanged_by_u2() -> None:
-    assert genome_length() == 99
+def test_genome_length_is_99_before_u3_and_u3_adds_exactly_two_genes() -> None:
+    assert genome_length() == 99 + 3
+    assert [g.name for g in gene_table()[-3:]] == [
+        "airfoil_facets",
+        "edge_alignment",
+        "facet_coarseness",
+    ]
 
 
 def test_a_long_slightly_tilted_shaft_fuses_with_its_blades_into_one_solid() -> None:
     """Gallery genome 45 (seed 1, flat-panel): a firewall 0.56 m inside the tail left the shaft
     ending on the blade plane and the fuse gave two solids."""
     req = brief_requirements("stub")
-    g = pin_choice(random_genomes(np.random.default_rng(1), 50), "body_style", "faceted")[45]
+    g = pin_choice(u2_random_genomes(1, 50), "body_style", "faceted")[45]
     design = decode(g, req)
     long_shafts = 0
     for p in design.propulsors:
