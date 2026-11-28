@@ -2000,3 +2000,173 @@ candidate repeats the decode many times, so it is very slow, not a loop in the p
 
 ## run 2026-11-28 08:54:02: pytest -q -x --tb=short -p no:cacheprovider -m slow tests/test_descriptor_v2.py -k no_reference_pair
 - 08:54:13 PASSED tests/test_descriptor_v2.py::test_no_reference_pair_is_closer_under_v2_than_under_v1 (0.5 s)
+
+## run 2026-11-28 08:54:25: pytest -q --tb=short -m slow -p no:cacheprovider -rf tests/test_areas.py
+- 08:54:25 SKIPPED tests/test_areas.py::test_top_area_agrees_with_a_brute_force_grid_on_random_designs[smoke] (0.0 s)
+- 08:54:25 SKIPPED tests/test_areas.py::test_frontal_area_agrees_with_a_brute_force_grid_on_designs_with_pods_and_canted_panels[smoke] (0.0 s)
+- 08:54:25 SKIPPED tests/test_areas.py::test_areas_cost_under_ten_milliseconds_per_design[smoke] (0.0 s)
+- 09:17:56 PASSED tests/test_areas.py::test_areas_agree_with_the_single_measures_and_stay_in_range[full] (1.5 s)
+- 09:18:07 PASSED tests/test_areas.py::test_top_area_agrees_with_a_brute_force_grid_on_random_designs[full] (11.6 s)
+- 09:18:48 PASSED tests/test_areas.py::test_frontal_area_agrees_with_a_brute_force_grid_on_designs_with_pods_and_canted_panels[full] (40.9 s)
+- 09:18:52 PASSED tests/test_areas.py::test_areas_cost_under_ten_milliseconds_per_design[full] (4.4 s)
+
+## run 2026-11-28 09:18:56: pytest -q --tb=short -m slow -p no:cacheprovider -rf tests/test_balance.py
+- 09:19:17 PASSED tests/test_balance.py::test_prepared_boxes_stay_inside_their_host_and_apart (0.0 s)
+- 09:19:19 PASSED tests/test_balance.py::test_designs_balanced_on_target_have_the_target_static_margin (1.3 s)
+- 09:19:19 PASSED tests/test_balance.py::test_balancing_a_balanced_design_moves_nothing (0.0 s)
+- 09:19:19 PASSED tests/test_balance.py::test_trim_deflects_the_control_put_on_the_longest_pitch_arm (0.0 s)
+- 09:19:19 PASSED tests/test_balance.py::test_body_shift_moves_the_body_and_keeps_the_surface_spacing (0.1 s)
+- 09:19:19 PASSED tests/test_balance.py::test_adjusted_designs_keep_fit_and_roots_on_their_body (0.1 s)
+- 09:19:20 PASSED tests/test_balance.py::test_gust_point_is_structure_only_and_capped_at_stall (0.2 s)
+- 09:19:21 PASSED tests/test_balance.py::test_tip_joined_design_has_positive_tier2_lift_slopes (0.6 s)
+- 09:19:21 PASSED tests/test_balance.py::test_incidence_zeroes_the_cruise_deflection_at_the_mid_cg (0.1 s)
+- 09:19:21 SKIPPED tests/test_balance.py::test_a_design_without_vertical_area_gets_a_centreline_fin (0.0 s)
+
+## run 2026-11-28 09:19:24: pytest -q --tb=short -m slow -p no:cacheprovider -rf tests/test_checks.py
+- 09:19:39 PASSED tests/test_checks.py::test_conventional_reference_passes_every_check_at_tier_2 (0.0 s)
+- 09:19:41 PASSED tests/test_checks.py::test_battery_moved_aft_fails_static_and_leaves_other_checks_unchanged (1.8 s)
+- 09:19:46 PASSED tests/test_checks.py::test_tier1_and_tier2_neutral_points_agree_within_5_percent_mac (5.2 s)
+- 09:19:46 SKIPPED tests/test_checks.py::test_tier1_time_per_candidate_is_measured[smoke] (0.0 s)
+- 09:19:56 PASSED tests/test_checks.py::test_tier1_time_per_candidate_is_measured[full] (9.6 s)
+
+## run 2026-11-28 09:19:58: pytest -q --tb=short -m slow -p no:cacheprovider -rf tests/test_clearance.py
+- 09:43:57 PASSED tests/test_clearance.py::test_prop_discs_clear_structure_by_the_margin[stub-full] (61.3 s)
+- 09:43:57 SKIPPED tests/test_clearance.py::test_props_clear_the_ground_line_for_wheels_and_skid[stub-full] (0.0 s)
+- 09:43:57 PASSED tests/test_clearance.py::test_wing_boxes_fit_the_real_loft_across_their_width[stub-full] (0.0 s)
+- 09:55:31 PASSED tests/test_clearance.py::test_prop_discs_clear_structure_by_the_margin[small_boxes-full] (16.1 s)
+- 09:55:32 PASSED tests/test_clearance.py::test_props_clear_the_ground_line_for_wheels_and_skid[small_boxes-full] (0.2 s)
+- 09:55:33 PASSED tests/test_clearance.py::test_wing_boxes_fit_the_real_loft_across_their_width[small_boxes-full] (1.1 s)
+- 09:57:54 PASSED tests/test_clearance.py::test_belly_recovery_keeps_props_on_their_mount_height[full] (141.0 s)
+
+## run 2026-11-28 09:57:58: pytest -q --tb=short -m slow -p no:cacheprovider -rf tests/test_derive_power.py
+- 09:58:07 PASSED tests/test_derive_power.py::test_the_500ms_brief_stops_at_the_power_check_before_any_search (9.1 s)
+- 09:58:18 PASSED tests/test_derive_power.py::test_the_80ms_brief_passes_the_power_guard (11.1 s)
+
+## run 2026-11-28 09:58:21: pytest -q --tb=short -m slow -p no:cacheprovider -rf tests/test_faceted_u2.py
+- 10:00:04 PASSED tests/test_faceted_u2.py::test_cad_builds_for_at_least_98_percent_of_random_faceted_genomes (85.0 s)
+- 10:00:21 PASSED tests/test_faceted_u2.py::test_cad_and_mesh_volumes_match_the_polyhedron_within_one_percent (17.3 s)
+
+## run 2026-11-28 10:00:25: pytest -q --tb=short -m slow -p no:cacheprovider -rf tests/test_faceted_u2_physics.py
+- 10:06:05 PASSED tests/test_faceted_u2_physics.py::test_internals_misfits_stay_under_one_percent_over_four_hundred_genomes[stub-faceted] (336.2 s)
+- 10:06:22 PASSED tests/test_faceted_u2_physics.py::test_internals_misfits_stay_under_one_percent_over_four_hundred_genomes[stub-smooth] (17.1 s)
+- 10:12:18 PASSED tests/test_faceted_u2_physics.py::test_internals_misfits_stay_under_one_percent_over_four_hundred_genomes[small_boxes-faceted] (356.5 s)
+- 10:12:32 PASSED tests/test_faceted_u2_physics.py::test_internals_misfits_stay_under_one_percent_over_four_hundred_genomes[small_boxes-smooth] (14.1 s)
+
+## run 2026-11-28 10:12:36: pytest -q --tb=short -m slow -p no:cacheprovider -rf tests/test_gallery.py
+- 10:12:55 PASSED tests/test_gallery.py::test_cli_gallery_writes_page_and_tiles[stub] (14.4 s)
+- 10:13:15 PASSED tests/test_gallery.py::test_cli_gallery_writes_page_and_tiles[small_boxes] (19.3 s)
+- 10:38:05 PASSED tests/test_gallery.py::test_cli_top_by_style_gallery_exports_scores (1490.3 s)
+
+## run 2026-11-28 10:38:10: pytest -q --tb=short -m slow -p no:cacheprovider -rf tests/test_genome.py
+- 10:38:10 PASSED tests/test_genome.py::test_brief_too_small_for_any_spar_raises_decode_error[full] (0.0 s)
+
+## run 2026-11-28 10:38:13: pytest -q --tb=short -m slow -p no:cacheprovider -rf tests/test_geom.py
+- 10:38:16 SKIPPED tests/test_geom.py::test_cad_builds_for_at_least_98_percent_of_random_genomes[smoke] (0.0 s)
+- 10:38:16 SKIPPED tests/test_geom.py::test_part_names_are_the_stable_instance_names[smoke] (0.0 s)
+- 10:38:16 SKIPPED tests/test_geom.py::test_glb_node_names_match_part_names[smoke] (0.0 s)
+- 10:38:16 SKIPPED tests/test_geom.py::test_same_genome_renders_identical_png_bytes[smoke] (0.0 s)
+- 10:38:16 SKIPPED tests/test_geom.py::test_one_stl_is_written_per_part[smoke] (0.0 s)
+- 10:38:16 SKIPPED tests/test_geom.py::test_written_stls_are_watertight[smoke] (0.0 s)
+- 10:38:16 SKIPPED tests/test_geom.py::test_tessellated_volumes_match_the_analytic_shapes[stub-smoke-surface] (0.0 s)
+- 10:38:16 SKIPPED tests/test_geom.py::test_tessellated_volumes_match_the_analytic_shapes[stub-smoke-body] (0.0 s)
+- 11:21:57 PASSED tests/test_geom.py::test_tessellated_volumes_match_the_analytic_shapes[stub-full-surface] (18.7 s)
+- 11:22:15 PASSED tests/test_geom.py::test_tessellated_volumes_match_the_analytic_shapes[stub-full-body] (17.8 s)
+- 11:23:38 PASSED tests/test_geom.py::test_cad_builds_for_at_least_98_percent_of_random_genomes[full] (82.7 s)
+- 11:23:39 PASSED tests/test_geom.py::test_part_names_are_the_stable_instance_names[full] (1.4 s)
+- 11:23:39 PASSED tests/test_geom.py::test_broken_section_raises_typed_geometry_error[full] (0.0 s)
+- 11:23:41 PASSED tests/test_geom.py::test_glb_node_names_match_part_names[full] (0.0 s)
+- 11:23:47 PASSED tests/test_geom.py::test_same_genome_renders_identical_png_bytes[full] (6.6 s)
+- 11:23:47 PASSED tests/test_geom.py::test_one_stl_is_written_per_part[full] (0.0 s)
+- 11:23:47 PASSED tests/test_geom.py::test_written_stls_are_watertight[full] (0.3 s)
+- 11:42:27 PASSED tests/test_geom.py::test_tessellated_volumes_match_the_analytic_shapes[small_boxes-full-surface] (16.2 s)
+- 11:42:43 PASSED tests/test_geom.py::test_tessellated_volumes_match_the_analytic_shapes[small_boxes-full-body] (16.3 s)
+- 11:42:44 SKIPPED tests/test_geom.py::test_tessellated_volumes_match_the_analytic_shapes[small_boxes-smoke-surface] (0.0 s)
+- 11:42:44 SKIPPED tests/test_geom.py::test_tessellated_volumes_match_the_analytic_shapes[small_boxes-smoke-body] (0.0 s)
+
+## run 2026-11-28 11:43:16: pytest -q --tb=short -m slow -p no:cacheprovider -rf tests/test_invariants.py
+- 12:13:04 PASSED tests/test_invariants.py::test_brief_exercises_its_box_host[stub-full] (0.0 s)
+- 12:15:38 PASSED tests/test_invariants.py::test_part_points_are_mirror_symmetric_about_y0[stub-full] (154.2 s)
+- 12:15:39 PASSED tests/test_invariants.py::test_whole_root_chord_lies_on_its_host[stub-full] (1.5 s)
+- 12:15:39 PASSED tests/test_invariants.py::test_similar_cant_roots_on_one_host_keep_the_separation_gap[stub-full] (0.0 s)
+- 12:15:40 PASSED tests/test_invariants.py::test_pods_sit_on_surface0[stub-full] (0.7 s)
+- 12:15:43 PASSED tests/test_invariants.py::test_propellers_attach_to_their_host_end[stub-full] (3.0 s)
+- 12:15:43 PASSED tests/test_invariants.py::test_projected_area_equals_required_area[stub-full] (0.0 s)
+- 12:15:43 PASSED tests/test_invariants.py::test_span_stays_within_limit[stub-full] (0.0 s)
+- 12:15:43 PASSED tests/test_invariants.py::test_fins_stay_within_the_area_and_height_caps[stub-full] (0.0 s)
+- 12:15:43 PASSED tests/test_invariants.py::test_no_outer_panel_is_taller_than_the_cap[stub-full] (0.0 s)
+- 12:15:43 PASSED tests/test_invariants.py::test_the_outer_panel_cap_binds_on_steep_and_shallow_panels[stub-full] (0.1 s)
+- 12:15:43 PASSED tests/test_invariants.py::test_a_capped_design_has_a_fin_at_a_cap[stub-full] (0.0 s)
+- 12:15:43 PASSED tests/test_invariants.py::test_surface0_is_always_present[stub-full] (0.0 s)
+- 12:15:43 PASSED tests/test_invariants.py::test_no_surface_is_below_min_area_share[stub-full] (0.0 s)
+- 12:15:43 PASSED tests/test_invariants.py::test_every_design_carries_the_three_boxes[stub-full] (0.0 s)
+- 12:15:45 PASSED tests/test_invariants.py::test_body_hosted_boxes_fit_inside_their_body[stub-full] (1.9 s)
+- 12:15:45 PASSED tests/test_invariants.py::test_spar_is_largest_tube_fitting_the_whole_spar_line[stub-full] (0.0 s)
+- 12:15:45 PASSED tests/test_invariants.py::test_tip_joins_share_tip_point_and_chord[stub-full] (0.0 s)
+- 12:15:46 PASSED tests/test_invariants.py::test_style_family_is_respected[stub-full] (0.2 s)
+- 12:15:46 PASSED tests/test_invariants.py::test_joined_surfaces_keep_the_join_style[stub-full] (0.0 s)
+- 12:18:44 PASSED tests/test_invariants.py::test_decode_is_deterministic[full-stub] (178.8 s)
+- 12:30:56 PASSED tests/test_invariants.py::test_brief_exercises_its_box_host[small_boxes-full] (0.0 s)
+- 12:31:36 PASSED tests/test_invariants.py::test_part_points_are_mirror_symmetric_about_y0[small_boxes-full] (39.9 s)
+- 12:31:36 PASSED tests/test_invariants.py::test_whole_root_chord_lies_on_its_host[small_boxes-full] (0.4 s)
+- 12:31:36 PASSED tests/test_invariants.py::test_similar_cant_roots_on_one_host_keep_the_separation_gap[small_boxes-full] (0.0 s)
+- 12:31:36 PASSED tests/test_invariants.py::test_pods_sit_on_surface0[small_boxes-full] (0.2 s)
+- 12:31:38 PASSED tests/test_invariants.py::test_propellers_attach_to_their_host_end[small_boxes-full] (1.6 s)
+- 12:31:38 PASSED tests/test_invariants.py::test_projected_area_equals_required_area[small_boxes-full] (0.0 s)
+- 12:31:38 PASSED tests/test_invariants.py::test_span_stays_within_limit[small_boxes-full] (0.0 s)
+- 12:31:38 PASSED tests/test_invariants.py::test_fins_stay_within_the_area_and_height_caps[small_boxes-full] (0.0 s)
+- 12:31:38 PASSED tests/test_invariants.py::test_no_outer_panel_is_taller_than_the_cap[small_boxes-full] (0.0 s)
+- 12:31:38 PASSED tests/test_invariants.py::test_the_outer_panel_cap_binds_on_steep_and_shallow_panels[small_boxes-full] (0.0 s)
+- 12:31:38 PASSED tests/test_invariants.py::test_a_capped_design_has_a_fin_at_a_cap[small_boxes-full] (0.0 s)
+- 12:31:38 PASSED tests/test_invariants.py::test_surface0_is_always_present[small_boxes-full] (0.0 s)
+- 12:31:38 PASSED tests/test_invariants.py::test_no_surface_is_below_min_area_share[small_boxes-full] (0.0 s)
+- 12:31:38 PASSED tests/test_invariants.py::test_every_design_carries_the_three_boxes[small_boxes-full] (0.0 s)
+- 12:31:39 PASSED tests/test_invariants.py::test_body_hosted_boxes_fit_inside_their_body[small_boxes-full] (0.5 s)
+- 12:31:39 PASSED tests/test_invariants.py::test_spar_is_largest_tube_fitting_the_whole_spar_line[small_boxes-full] (0.0 s)
+- 12:31:39 PASSED tests/test_invariants.py::test_tip_joins_share_tip_point_and_chord[small_boxes-full] (0.0 s)
+- 12:31:39 PASSED tests/test_invariants.py::test_style_family_is_respected[small_boxes-full] (0.1 s)
+- 12:31:39 PASSED tests/test_invariants.py::test_joined_surfaces_keep_the_join_style[small_boxes-full] (0.0 s)
+- 12:34:57 PASSED tests/test_invariants.py::test_decode_is_deterministic[full-small_boxes] (197.6 s)
+
+## run 2026-11-28 12:35:03: pytest -q --tb=short -m slow -p no:cacheprovider -rf tests/test_join_gap.py
+- 13:00:33 PASSED tests/test_join_gap.py::test_the_vlm_gap_pulls_each_joined_tip_inboard_by_the_gap_share_of_its_last_panel[full] (0.0 s)
+- 13:00:33 PASSED tests/test_join_gap.py::test_the_design_itself_keeps_the_shared_tip[full] (0.0 s)
+
+## run 2026-11-28 13:00:39: pytest -q --tb=short -m slow -p no:cacheprovider -rf tests/test_mass.py
+- 13:23:01 PASSED tests/test_mass.py::test_every_component_has_a_positive_mass[full] (0.0 s)
+- 13:23:02 PASSED tests/test_mass.py::test_cg_range_has_the_fore_cg_ahead_of_the_aft_cg[full] (0.0 s)
+- 13:23:02 PASSED tests/test_mass.py::test_moving_the_battery_aft_moves_the_cg_aft[full] (0.0 s)
+
+## run 2026-11-28 13:23:05: pytest -q --tb=short -m slow -p no:cacheprovider -rf tests/test_new_genes.py
+- 13:23:18 PASSED tests/test_new_genes.py::test_the_wing_root_layout_holds_the_boxes_in_the_wing_when_they_fit_and_in_the_body_else[full-stub] (0.1 s)
+- 13:36:38 PASSED tests/test_new_genes.py::test_the_wing_root_layout_on_the_99_gene_population[full-stub] (0.1 s)
+- 13:38:58 PASSED tests/test_new_genes.py::test_the_wing_root_layout_holds_the_boxes_in_the_wing_or_the_body_with_faceted_bodies[full-stub] (139.7 s)
+- 13:38:58 PASSED tests/test_new_genes.py::test_the_decoded_design_records_its_layout_label[full] (0.1 s)
+- 13:38:58 PASSED tests/test_new_genes.py::test_some_random_genome_decodes_to_each_layout_by_its_geometry[full-free] (0.1 s)
+- 13:38:58 PASSED tests/test_new_genes.py::test_some_random_genome_decodes_to_each_layout_by_its_geometry[full-conventional] (0.1 s)
+- 13:38:58 PASSED tests/test_new_genes.py::test_some_random_genome_decodes_to_each_layout_by_its_geometry[full-canard] (0.1 s)
+- 13:38:58 PASSED tests/test_new_genes.py::test_some_random_genome_decodes_to_each_layout_by_its_geometry[full-tandem] (0.1 s)
+- 13:38:58 PASSED tests/test_new_genes.py::test_some_random_genome_decodes_to_each_layout_by_its_geometry[full-three_surface] (0.1 s)
+- 13:38:58 PASSED tests/test_new_genes.py::test_some_random_genome_decodes_to_each_layout_by_its_geometry[full-flying_wing] (0.1 s)
+- 13:38:58 PASSED tests/test_new_genes.py::test_some_random_genome_decodes_to_each_layout_by_its_geometry[full-joined] (0.1 s)
+- 13:38:58 PASSED tests/test_new_genes.py::test_no_design_has_less_than_the_stall_area[full] (0.0 s)
+- 13:39:04 PASSED tests/test_new_genes.py::test_the_wing_root_layout_holds_the_boxes_in_the_wing_when_they_fit_and_in_the_body_else[full-small_boxes] (0.0 s)
+- 13:45:33 PASSED tests/test_new_genes.py::test_the_wing_root_layout_on_the_99_gene_population[full-small_boxes] (0.0 s)
+- 13:47:57 PASSED tests/test_new_genes.py::test_the_wing_root_layout_holds_the_boxes_in_the_wing_or_the_body_with_faceted_bodies[full-small_boxes] (143.6 s)
+
+## run 2026-11-28 13:48:00: pytest -q --tb=short -m slow -p no:cacheprovider -rf tests/test_physics_cli.py
+- 13:48:27 PASSED tests/test_physics_cli.py::test_check_writes_check_json_and_passes_the_conventional_at_tier_2 (2.0 s)
+- 13:48:27 PASSED tests/test_physics_cli.py::test_derive_writes_requirements_json (0.3 s)
+
+## run 2026-11-28 13:48:32: pytest -q --tb=short -m slow -p no:cacheprovider -rf tests/test_style.py
+- 14:07:29 PASSED tests/test_style.py::test_features_are_finite_on_every_design[stub-full] (0.3 s)
+- 14:14:08 PASSED tests/test_style.py::test_features_are_finite_on_every_design[small_boxes-full] (0.1 s)
+- 14:14:08 PASSED tests/test_style.py::test_removing_fin_surfaces_leaves_features_unchanged[full] (0.5 s)
+- 14:14:08 PASSED tests/test_style.py::test_fin_terms_are_zero_without_fin_panels[full] (0.1 s)
+- 14:14:08 PASSED tests/test_style.py::test_packaged_model_scores_inside_unit_interval[full] (0.1 s)
+
+## run 2026-11-28 14:14:12: pytest -q --tb=short -m slow -p no:cacheprovider -rf tests/test_tune.py
+- 14:14:16 SKIPPED tests/test_tune.py::test_cli_tune_style_recovers_weights_and_is_deterministic[smoke] (0.0 s)
+- 14:38:45 PASSED tests/test_tune.py::test_cli_tune_style_recovers_weights_and_is_deterministic[full] (647.6 s)
+
+## U4 final (2026-11-29)
+- Remaining slow files re-run file by file on the 25-number build: all passed (existing skips only), no xfails. U4 gate passed.
