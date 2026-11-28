@@ -12,7 +12,7 @@ from aeroforge.candidate import Candidate, evaluate_candidate, passable_bar
 from aeroforge.checks import CheckReport, CheckResult
 from aeroforge.constants import number
 from aeroforge.demo_cli import WINNER_FILE, _one_run, pick_winner
-from aeroforge.descriptor import desc, median_nearest
+from aeroforge.descriptor import DESC_SIZE, desc, median_nearest
 from aeroforge.genome import decode, random_genomes
 from aeroforge.geom import GeometryError
 from aeroforge.models import Adjust, Brief, Design, Requirements
@@ -123,6 +123,7 @@ def _scored(
     """A passable candidate; its descriptor sits far from the others unless `desc` is given."""
     report = _report({"trim": 0.1, "power": power})
     x = desc if desc is not None else (gene * FAR,)
+    x = (*x, *[0.0] * (DESC_SIZE - len(x)))  # unused numbers 0: no body, under the bomb cap
     return Scored(index, Candidate((gene,), x, style, report, None, None), nov, "random")
 
 

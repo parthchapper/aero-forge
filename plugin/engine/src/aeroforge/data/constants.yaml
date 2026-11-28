@@ -314,3 +314,10 @@ coarse_prior_high: {value: 0.50, unit: "-", source: "U3b ASSUMED search prior we
 planar_det_tol: {value: 1.0e-17, unit: m3, source: "U3b: planarity determinant (6 x tetra volume of a quad's corners) below which facet_planar.planarize calls a quad flat; the flat test of facet_wing then applies facet_geom_tol_m as before"}
 coarse_move_width_frac: {value: 0.15, unit: "-", source: "U3b ASSUMED safety cap: a crease merge on a body moves vertices by at most this share of the body's narrower half-axis (the user's 3 % of the length alone would let a slim pod's merge move a vertex over half its width)"}
 coarse_volume_ratio_max: {value: 2.0, unit: "-", source: "U3 audit ASSUMED: a strip merge is taken only when the wing keeps its volume within this factor either way; the minimum-norm planarisation flattened 1.5 % of coarse wings into one plane (volume 0, CAD invalid), the rest moved it between 0.31 and 1.62 of the unmoved wing"}
+desc2_scan_lines: {value: 600, unit: count, source: "U4 ASSUMED scan lines per view for the descriptor shadow shares (shares, not areas: 5x coarser than area_scan_lines keeps a descriptor cheap)"}
+desc2_fineness_max: {value: 15.0, unit: "-", source: "U4 ASSUMED body length / equivalent diameter that maps to 1 (gene range 4-10; flat-panel sizing reaches 1.5 x more)"}
+desc2_panels_max: {value: 40, unit: count, source: "U4 ASSUMED body sheets that map to 1 (U3b measured median 23.5, max 34 at coarseness off)"}
+desc2_directions_max: {value: 40, unit: count, source: "U4 ASSUMED body face directions (3 deg clusters of sheet normals) that map to 1 (U3b: 12 per side at the median, coarseness off)"}
+desc2_crease_ref_deg: {value: 90.0, unit: deg, source: "U4 ASSUMED mean crease angle between neighbouring body sheets that maps to 1 (a right-angle box edge)"}
+desc2_pods_max: {value: 2, unit: count, source: "U4: pod instances that map to 1 (a mirrored pod pair)"}
+bomb_cap: {value: 0.45, unit: "-", source: "plan U4: finalists need body_top_share (body shadow / total shadow seen from above, pods included) <= this; U6 ties it to alienness"}

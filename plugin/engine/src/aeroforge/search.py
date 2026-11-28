@@ -11,7 +11,7 @@ from ribs.schedulers import Scheduler
 
 from aeroforge.candidate import Candidate
 from aeroforge.constants import knob, number
-from aeroforge.descriptor import DESC_SIZE, novelty
+from aeroforge.descriptor import DESC_SIZE, body_top_share, novelty
 from aeroforge.genetable import genome_length
 from aeroforge.genome import random_genomes
 
@@ -181,10 +181,22 @@ def total_violation(c: Candidate) -> float:
     return c.report.violation if c.report is not None else float("inf")
 
 
+def over_bomb_cap(c: Candidate) -> bool:
+    """The body takes more of the top-down shadow than bomb_cap allows (U4); a candidate without a
+    descriptor counts as over, so it never qualifies."""
+    return c.desc is None or body_top_share(np.array(c.desc)) > number("bomb_cap")
+
+
 def qualifies(s: Scored, d_min: float, s_min: float, r: float) -> bool:
-    """SPEC §9 filter with the passable bar (§14.3) and the novelty band (user Deviation §9)."""
+    """SPEC §9 filter with the passable bar (§14.3), the novelty band (user Deviation §9) and the
+    bomb cap (U4)."""
     c = s.candidate
-    return c.passable and c.style >= s_min and band_gap(s.novelty, d_min, r) == 0.0
+    return (
+        c.passable
+        and c.style >= s_min
+        and band_gap(s.novelty, d_min, r) == 0.0
+        and not over_bomb_cap(c)
+    )
 
 
 def _unique(items: Sequence[Scored]) -> list[Scored]:
@@ -239,12 +251,14 @@ def select(evaluated: Sequence[Scored], d_min: float, s_min: float, r: float) ->
 
 
 def fallback(evaluated: Sequence[Scored], d_min: float, s_min: float, r: float) -> list[Scored]:
-    """Nothing qualified: closest candidates (passable, styled, near the band, least violation)."""
+    """Nothing qualified: closest candidates (under the bomb cap, passable, styled, near the band,
+    least violation)."""
     checked = [s for s in evaluated if s.candidate.report is not None]
 
     def key(s: Scored) -> tuple[float, ...]:
         c = s.candidate
         return (
+            float(over_bomb_cap(c)),
             -float(c.passable),
             -float(c.style >= s_min),
             band_gap(s.novelty, d_min, r),

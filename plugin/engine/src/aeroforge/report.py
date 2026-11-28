@@ -22,6 +22,7 @@ class Novelty:
     reference_distance: float
     past: str | None
     past_distance: float | None
+    contributors: tuple[tuple[str, float], ...] = ()
 
 
 def _fmt(v: object) -> str:
@@ -77,6 +78,11 @@ def _novelty_rows(n: Novelty) -> list[str]:
         rows.append(
             f"- Nearest past design: {n.past}, distance {n.past_distance:.4f}"
             f" ({n.past_distance / n.d_min:.2f} x d_min)."
+        )
+    if n.contributors:
+        top = ", ".join(f"{name} ({share:.0%})" for name, share in n.contributors)
+        rows.append(
+            f"- Descriptor numbers that set the distance to the nearest known design: {top}."
         )
     return rows
 

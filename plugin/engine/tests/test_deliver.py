@@ -9,6 +9,7 @@ import pytest
 from PIL import Image
 
 from aeroforge.cli import main
+from aeroforge.descriptor import DESC_VERSION, desc
 from aeroforge.hardpoints import hardpoints
 from aeroforge.internals_geom import internal_parts
 from aeroforge.mesh import read_glb, tessellate
@@ -44,7 +45,10 @@ def built(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, list[int]]:
     folder = tmp_path_factory.mktemp("design")
     _verified_dir(folder)
     history = folder / "history.jsonl"
-    history.write_text(json.dumps({"id": "past_run", "desc": _winner(1)["desc"]}) + "\n")
+    # the stored winner descs are v1 (16 numbers); U4 history rows carry the current version
+    past = [float(v) for v in desc(Design.model_validate(_winner(1)["design"]))]
+    row = {"id": "past_run", "desc": past, "desc_version": DESC_VERSION}
+    history.write_text(json.dumps(row) + "\n")
     codes = [
         main(["build", str(folder), "--full"]),
         main(["render", str(folder)]),
