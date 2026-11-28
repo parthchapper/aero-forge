@@ -23,6 +23,7 @@ from aeroforge.descriptor_v1 import DESC_SIZE_V1, desc_v1
 from aeroforge.genetable import gene_table, pin_choice
 from aeroforge.genome import DecodeError, decode, random_genomes
 from aeroforge.models import Design, Requirements
+from aeroforge.reference import reference_genome, reference_names
 from aeroforge.report import Novelty, _novelty_rows
 from aeroforge.search import Scored, over_bomb_cap, select
 from aeroforge.search_cli import append_history, read_history
@@ -55,6 +56,17 @@ def test_v2_is_in_unit_range_on_one_thousand_genomes(full_designs: list[Design])
 def test_the_first_sixteen_numbers_are_descriptor_v1_unchanged(designs: list[Design]) -> None:
     for d in designs[:20]:
         assert np.array_equal(desc(d)[:LIFT_NUMBERS], desc_v1(d))
+
+
+@pytest.mark.slow
+def test_no_reference_pair_is_closer_under_v2_than_under_v1(req: Requirements) -> None:
+    """U4 gate (a), amended by the user: v2 holds v1's numbers first, so no distance can shrink."""
+    designs = [decode(reference_genome(n), req) for n in reference_names()]
+    v1 = np.array([desc_v1(d) for d in designs])
+    v2 = np.array([desc(d) for d in designs])
+    d1 = np.linalg.norm(v1[:, None] - v1[None], axis=2)
+    d2 = np.linalg.norm(v2[:, None] - v2[None], axis=2)
+    assert len(designs) == 44 and np.all(d2 >= d1 - 1e-12)
 
 
 def _scaled_body(d: Design, factor: float) -> Design:

@@ -1997,3 +1997,6 @@ candidate repeats the decode many times, so it is very slow, not a loop in the p
 
 ## U4 re-run after the 25-number descriptor (2026-11-28)
 - Fast suite: 452 passed, 1 skipped, 0 failed. Slow files touching the descriptor/novelty: descriptor 1, descriptor_v2 4, search 4 (+1 skip), deliver 20, internals 4, randomness 2: all passed. No xfails.
+
+## run 2026-11-28 08:54:02: pytest -q -x --tb=short -p no:cacheprovider -m slow tests/test_descriptor_v2.py -k no_reference_pair
+- 08:54:13 PASSED tests/test_descriptor_v2.py::test_no_reference_pair_is_closer_under_v2_than_under_v1 (0.5 s)
